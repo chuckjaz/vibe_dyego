@@ -1,0 +1,1 @@
+Implemented parsing for value type declarations in `dyego.pest`. Added `value_type_declaration` rule and `value_field` rule to support the new syntax for defining value types with `val` and `var` fields. Also added `parser_test.rs` with unit tests for value type declaration parsing, and updated `main.rs` to include the new test module. All tests passed successfully.

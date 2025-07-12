@@ -158,6 +158,9 @@ Here are the established syntax and semantic rules:
 
     Trait Imports: Using the `trait` keyword in a path brings all trait implementations from that module into the current scope, making extension methods available (e.g., `import my_lib.extensions.trait`).
 
+21. By convention, source files for dyego end in `.dg`.
+
+
 Help implement this language
 
 # Configuration
