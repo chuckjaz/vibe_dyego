@@ -1,207 +1,690 @@
-use pest::iterators::Pair;
-use crate::ast::*;
-use crate::Rule;
+use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType};
 
-pub fn parse_program(pair: Pair<Rule>) -> Program {
-    let mut statements = Vec::new();
-    for statement_pair in pair.into_inner() {
-        if let Rule::statement = statement_pair.as_rule() {
-            statements.push(parse_statement(statement_pair));
+#[derive(Debug, PartialEq, Clone)]
+pub enum Token {
+    Number(f64),
+    Plus,
+    Minus,
+    Asterisk,
+    Slash,
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    If,
+    Else,
+    Identifier(String),
+    Illegal,
+    Eof,
+
+    // New tokens
+    Percent,
+    GreaterThan,
+    LessThan,
+    GreaterThanEqual,
+    LessThanEqual,
+    EqualEqual,
+    Bang,
+    BangEqual,
+    AmpersandAmpersand,
+    PipePipe,
+    Val,
+    Var,
+    Equal,
+    Fun,
+    Colon,
+    Comma,
+}
+
+pub struct Lexer<'a> {
+    input: &'a str,
+    position: usize,
+    read_position: usize,
+    ch: u8,
+}
+
+impl<'a> Lexer<'a> {
+    pub fn new(input: &'a str) -> Self {
+        let mut l = Lexer {
+            input,
+            position: 0,
+            read_position: 0,
+            ch: 0,
+        };
+        l.read_char();
+        l
+    }
+
+    fn read_char(&mut self) {
+        if self.read_position >= self.input.len() {
+            self.ch = 0;
+        } else {
+            self.ch = self.input.as_bytes()[self.read_position];
+        }
+        self.position = self.read_position;
+        self.read_position += 1;
+    }
+
+    fn peek_char(&self) -> u8 {
+        if self.read_position >= self.input.len() {
+            0
+        } else {
+            self.input.as_bytes()[self.read_position]
         }
     }
-    Program { statements }
-}
 
-fn parse_statement(pair: Pair<Rule>) -> Statement {
-    let inner = pair.into_inner().next().unwrap();
-    match inner.as_rule() {
-        Rule::variable_statement => Statement::Variable(parse_variable_statement(inner)),
-        Rule::function_definition => Statement::Function(parse_function_definition(inner)),
-        _ => unreachable!(),
-    }
-}
-
-fn parse_function_definition(pair: Pair<Rule>) -> FunctionDefinition {
-    let mut inner = pair.into_inner();
-    let name = inner.next().unwrap().as_str().to_string();
-    let parameters = parse_parameter_list(inner.next().unwrap());
-    let next = inner.next().unwrap();
-    let (return_type, body) = if next.as_rule() == Rule::r#type {
-        (Some(parse_type(next)), parse_block(inner.next().unwrap()))
-    } else {
-        (None, parse_block(next))
-    };
-    FunctionDefinition {
-        name,
-        parameters,
-        return_type,
-        body,
-    }
-}
-
-fn parse_parameter_list(pair: Pair<Rule>) -> Vec<Parameter> {
-    let mut parameters = Vec::new();
-    for parameter_pair in pair.into_inner() {
-        parameters.push(parse_parameter(parameter_pair));
-    }
-    parameters
-}
-
-fn parse_parameter(pair: Pair<Rule>) -> Parameter {
-    let mut inner = pair.into_inner();
-    let name = inner.next().unwrap().as_str().to_string();
-    let type_annotation = parse_type(inner.next().unwrap());
-    Parameter {
-        name,
-        type_annotation,
-    }
-}
-
-fn parse_block(pair: Pair<Rule>) -> Block {
-    let mut inner = pair.into_inner();
-    let mut statements = Vec::new();
-    let mut expression = None;
-    while let Some(current) = inner.next() {
-        match current.as_rule() {
-            Rule::statement => {
-                statements.push(parse_statement(current));
+    pub fn next_token(&mut self) -> Token {
+        self.skip_whitespace();
+        let tok = match self.ch {
+            b'+' => Token::Plus,
+            b'-' => Token::Minus,
+            b'*' => Token::Asterisk,
+            b'/' => Token::Slash,
+            b'%' => Token::Percent,
+            b'<' => {
+                if self.peek_char() == b'=' {
+                    self.read_char();
+                    Token::LessThanEqual
+                } else {
+                    Token::LessThan
+                }
             }
-            Rule::expression => {
-                expression = Some(Box::new(parse_expression(current)));
-                break;
+            b'>' => {
+                if self.peek_char() == b'=' {
+                    self.read_char();
+                    Token::GreaterThanEqual
+                } else {
+                    Token::GreaterThan
+                }
             }
-            _ => unreachable!(),
+            b'=' => {
+                if self.peek_char() == b'=' {
+                    self.read_char();
+                    Token::EqualEqual
+                } else {
+                    Token::Equal
+                }
+            }
+            b'!' => {
+                if self.peek_char() == b'=' {
+                    self.read_char();
+                    Token::BangEqual
+                } else {
+                    Token::Bang
+                }
+            }
+            b'&' => {
+                if self.peek_char() == b'&' {
+                    self.read_char();
+                    Token::AmpersandAmpersand
+                } else {
+                    Token::Illegal
+                }
+            }
+            b'|' => {
+                if self.peek_char() == b'|' {
+                    self.read_char();
+                    Token::PipePipe
+                } else {
+                    Token::Illegal
+                }
+            }
+            b'(' => Token::LParen,
+            b')' => Token::RParen,
+            b'{' => Token::LBrace,
+            b'}' => Token::RBrace,
+            b':' => Token::Colon,
+            b',' => Token::Comma,
+            b'a'..=b'z' | b'A'..=b'Z' | b'_' => {
+                return self.read_identifier();
+            }
+            b'0'..=b'9' => {
+                return self.read_number();
+            }
+            0 => Token::Eof,
+            _ => Token::Illegal,
+        };
+        self.read_char();
+        tok
+    }
+
+    fn read_number(&mut self) -> Token {
+        let start = self.position;
+        while self.ch.is_ascii_digit() || self.ch == b'.' {
+            self.read_char();
+        }
+        let number_str = &self.input[start..self.position];
+        Token::Number(number_str.parse().unwrap())
+    }
+
+    fn read_identifier(&mut self) -> Token {
+        let start = self.position;
+        while self.ch.is_ascii_alphabetic() || self.ch == b'_' {
+            self.read_char();
+        }
+        let ident = &self.input[start..self.position];
+        match ident {
+            "if" => Token::If,
+            "else" => Token::Else,
+            "val" => Token::Val,
+            "var" => Token::Var,
+            "fun" => Token::Fun,
+            _ => Token::Identifier(ident.to_string()),
         }
     }
-    Block {
-        statements,
-        expression,
+
+    fn skip_whitespace(&mut self) {
+        while self.ch.is_ascii_whitespace() {
+            self.read_char();
+        }
     }
 }
 
-fn parse_variable_statement(pair: Pair<Rule>) -> VariableStatement {
-    let mut inner = pair.into_inner();
-    let kw = inner.next().unwrap();
-    let mutable = kw.as_str() == "var";
-    let name = inner.next().unwrap().as_str().to_string();
-    let value = parse_expression(inner.next().unwrap());
-    VariableStatement { mutable, name, value }
+pub struct Parser<'a> {
+    lexer: Lexer<'a>,
+    current_token: Token,
 }
 
-fn parse_expression(pair: Pair<Rule>) -> Expression {
-    let inner = pair.into_inner().next().unwrap();
-    match inner.as_rule() {
-        Rule::literal => Expression::Literal(parse_literal(inner)),
-        _ => unreachable!(),
-    }
-}
-
-fn parse_literal(pair: Pair<Rule>) -> Literal {
-    let inner = pair.into_inner().next().unwrap();
-    match inner.as_rule() {
-        Rule::integer_literal => Literal::Integer(inner.as_str().parse().unwrap()),
-        Rule::float_literal => Literal::Float(inner.as_str().parse().unwrap()),
-        Rule::string_literal => Literal::String(inner.as_str()[1..inner.as_str().len() - 1].to_string()),
-        Rule::boolean_literal => Literal::Boolean(inner.as_str().parse().unwrap()),
-        Rule::null_literal => Literal::Null,
-        _ => unreachable!(),
-    }
-}
-
-pub fn parse_type(pair: Pair<Rule>) -> Type {
-    let mut simple_types = Vec::new();
-    for current in pair.into_inner() {
-        simple_types.push(parse_simple_type(current));
+impl<'a> Parser<'a> {
+    pub fn new(lexer: Lexer<'a>) -> Self {
+        let mut p = Parser {
+            lexer,
+            current_token: Token::Eof,
+        };
+        p.next_token();
+        p
     }
 
-    if simple_types.len() == 1 {
-        Type::Simple(simple_types.remove(0))
-    } else {
-        Type::Union(simple_types)
+    fn next_token(&mut self) {
+        self.current_token = self.lexer.next_token();
     }
-}
 
-fn parse_simple_type(pair: Pair<Rule>) -> SimpleType {
-    let mut inner = pair.into_inner();
-    let base_type_pair = inner.next().unwrap();
-    let base = parse_base_type(base_type_pair);
-
-    let mut specifiers = Vec::new();
-    for specifier_pair in inner {
-        match specifier_pair.as_str() {
-            "[]" => specifiers.push(TypeSpecifier::Array),
-            "?" => specifiers.push(TypeSpecifier::Optional),
-            _ => unreachable!(),
+    pub fn parse_statement(&mut self) -> Result<Statement, String> {
+        match self.current_token {
+            Token::Val | Token::Var => self.parse_variable_statement(),
+            Token::Fun => self.parse_function_statement(),
+            _ => self.parse_expression_statement(),
         }
     }
 
-    SimpleType { base, specifiers }
-}
+    fn parse_function_statement(&mut self) -> Result<Statement, String> {
+        self.next_token(); // consume 'fun'
 
-fn parse_base_type(pair: Pair<Rule>) -> BaseType {
-    let inner = pair.into_inner().next().unwrap();
-    match inner.as_rule() {
-        Rule::primitive_type => BaseType::Primitive(parse_primitive_type(inner)),
-        Rule::user_type => BaseType::User(inner.as_str().to_string()),
-        _ => unreachable!(),
+        let name = match self.current_token.clone() {
+            Token::Identifier(name) => name,
+            _ => return Err(format!("Expected function name, got {:?}", self.current_token)),
+        };
+        self.next_token(); // consume function name
+
+        if self.current_token != Token::LParen {
+            return Err(format!("Expected '(' after function name, got {:?}", self.current_token));
+        }
+        self.next_token(); // consume '('
+
+        let parameters = self.parse_function_parameters()?;
+
+        let return_type = if self.current_token == Token::Colon {
+            self.next_token(); // consume ':'
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        if self.current_token != Token::LBrace {
+            return Err(format!("Expected '{{' before function body, got {:?}", self.current_token));
+        }
+
+        let body = self.parse_block()?;
+
+        Ok(Statement::Function(FunctionDefinition {
+            name,
+            parameters,
+            return_type,
+            body,
+        }))
     }
-}
 
-fn parse_primitive_type(pair: Pair<Rule>) -> PrimitiveType {
-    match pair.as_str() {
-        "i8" => PrimitiveType::I8,
-        "i16" => PrimitiveType::I16,
-        "i32" => PrimitiveType::I32,
-        "i64" => PrimitiveType::I64,
-        "u8" => PrimitiveType::U8,
-        "u16" => PrimitiveType::U16,
-        "u32" => PrimitiveType::U32,
-        "u64" => PrimitiveType::U64,
-        "f32" => PrimitiveType::F32,
-        "f64" => PrimitiveType::F64,
-        "Boolean" => PrimitiveType::Boolean,
-        "Rune" => PrimitiveType::Rune,
-        "String" => PrimitiveType::String,
-        _ => unreachable!(),
+    fn parse_function_parameters(&mut self) -> Result<Vec<Parameter>, String> {
+        let mut params = Vec::new();
+        if self.current_token == Token::RParen {
+            self.next_token(); // consume ')'
+            return Ok(params);
+        }
+
+        params.push(self.parse_parameter()?);
+
+        while self.current_token == Token::Comma {
+            self.next_token(); // consume ','
+            params.push(self.parse_parameter()?);
+        }
+
+        if self.current_token != Token::RParen {
+            return Err(format!("Expected ')' after parameters, got {:?}", self.current_token));
+        }
+        self.next_token(); // consume ')'
+
+        Ok(params)
+    }
+
+    fn parse_parameter(&mut self) -> Result<Parameter, String> {
+        let name = match self.current_token.clone() {
+            Token::Identifier(name) => name,
+            _ => return Err(format!("Expected parameter name, got {:?}", self.current_token)),
+        };
+        self.next_token(); // consume param name
+
+        if self.current_token != Token::Colon {
+            return Err(format!("Expected ':' after parameter name, got {:?}", self.current_token));
+        }
+        self.next_token(); // consume ':'
+
+        let type_annotation = self.parse_type()?;
+
+        Ok(Parameter { name, type_annotation })
+    }
+
+    fn parse_type(&mut self) -> Result<Type, String> {
+        let base_type = match self.current_token.clone() {
+            Token::Identifier(name) => BaseType::User(name),
+            _ => return Err(format!("Expected type name, got {:?}", self.current_token)),
+        };
+        self.next_token(); // consume type name
+
+        Ok(Type::Simple(SimpleType {
+            base: base_type,
+            specifiers: vec![],
+        }))
+    }
+
+    fn parse_variable_statement(&mut self) -> Result<Statement, String> {
+        let mutable = self.current_token == Token::Var;
+        self.next_token(); // consume 'val' or 'var'
+
+        let name = match self.current_token.clone() {
+            Token::Identifier(name) => name,
+            _ => return Err(format!("Expected identifier, got {:?}", self.current_token)),
+        };
+        self.next_token(); // consume identifier
+
+        if self.current_token != Token::Equal {
+            return Err(format!("Expected '=', got {:?}", self.current_token));
+        }
+        self.next_token(); // consume '='
+
+        let value = self.parse_expression()?;
+
+        Ok(Statement::Variable(VariableStatement {
+            mutable,
+            name,
+            value,
+        }))
+    }
+
+    fn parse_expression_statement(&mut self) -> Result<Statement, String> {
+        let expr = self.parse_expression()?;
+        Ok(Statement::Expression(expr))
+    }
+
+    pub fn parse_expression(&mut self) -> Result<Expression, String> {
+        self.parse_logical_or()
+    }
+
+    fn parse_logical_or(&mut self) -> Result<Expression, String> {
+        let mut left = self.parse_logical_and()?;
+        while self.current_token == Token::PipePipe {
+            let op = BinaryOperator::Or;
+            self.next_token();
+            let right = self.parse_logical_and()?;
+            left = Expression::Binary(Box::new(left), op, Box::new(right));
+        }
+        Ok(left)
+    }
+
+    fn parse_logical_and(&mut self) -> Result<Expression, String> {
+        let mut left = self.parse_equality()?;
+        while self.current_token == Token::AmpersandAmpersand {
+            let op = BinaryOperator::And;
+            self.next_token();
+            let right = self.parse_equality()?;
+            left = Expression::Binary(Box::new(left), op, Box::new(right));
+        }
+        Ok(left)
+    }
+
+    fn parse_equality(&mut self) -> Result<Expression, String> {
+        let mut left = self.parse_comparison()?;
+        while self.current_token == Token::EqualEqual || self.current_token == Token::BangEqual {
+            let op = match self.current_token {
+                Token::EqualEqual => BinaryOperator::Equality,
+                Token::BangEqual => BinaryOperator::Inequality,
+                _ => unreachable!(),
+            };
+            self.next_token();
+            let right = self.parse_comparison()?;
+            left = Expression::Binary(Box::new(left), op, Box::new(right));
+        }
+        Ok(left)
+    }
+
+    fn parse_comparison(&mut self) -> Result<Expression, String> {
+        let mut left = self.parse_term()?;
+        while self.current_token == Token::GreaterThan
+            || self.current_token == Token::GreaterThanEqual
+            || self.current_token == Token::LessThan
+            || self.current_token == Token::LessThanEqual
+        {
+            let op = match self.current_token {
+                Token::GreaterThan => BinaryOperator::GreaterThan,
+                Token::GreaterThanEqual => BinaryOperator::GreaterThanOrEqual,
+                Token::LessThan => BinaryOperator::LessThan,
+                Token::LessThanEqual => BinaryOperator::LessThanOrEqual,
+                _ => unreachable!(),
+            };
+            self.next_token();
+            let right = self.parse_term()?;
+            left = Expression::Binary(Box::new(left), op, Box::new(right));
+        }
+        Ok(left)
+    }
+
+    fn parse_term(&mut self) -> Result<Expression, String> {
+        let mut left = self.parse_factor()?;
+        while self.current_token == Token::Plus || self.current_token == Token::Minus {
+            let op = match self.current_token {
+                Token::Plus => BinaryOperator::Add,
+                Token::Minus => BinaryOperator::Subtract,
+                _ => unreachable!(),
+            };
+            self.next_token();
+            let right = self.parse_factor()?;
+            left = Expression::Binary(Box::new(left), op, Box::new(right));
+        }
+        Ok(left)
+    }
+
+    fn parse_factor(&mut self) -> Result<Expression, String> {
+        let mut left = self.parse_unary()?;
+        while self.current_token == Token::Asterisk || self.current_token == Token::Slash || self.current_token == Token::Percent {
+            let op = match self.current_token {
+                Token::Asterisk => BinaryOperator::Multiply,
+                Token::Slash => BinaryOperator::Divide,
+                Token::Percent => BinaryOperator::Modulo,
+                _ => unreachable!(),
+            };
+            self.next_token();
+            let right = self.parse_unary()?;
+            left = Expression::Binary(Box::new(left), op, Box::new(right));
+        }
+        Ok(left)
+    }
+
+    fn parse_unary(&mut self) -> Result<Expression, String> {
+        if self.current_token == Token::Minus || self.current_token == Token::Bang {
+            let op = match self.current_token {
+                Token::Minus => UnaryOperator::Negate,
+                Token::Bang => UnaryOperator::Not,
+                _ => unreachable!(),
+            };
+            self.next_token();
+            let expr = self.parse_unary()?;
+            Ok(Expression::Unary(op, Box::new(expr)))
+        } else {
+            self.parse_primary()
+        }
+    }
+
+    fn parse_primary(&mut self) -> Result<Expression, String> {
+        match self.current_token.clone() {
+            Token::Number(n) => {
+                self.next_token();
+                Ok(Expression::Literal(Literal::Float(n)))
+            }
+            Token::LParen => {
+                self.next_token();
+                let expr = self.parse_expression()?;
+                if self.current_token != Token::RParen {
+                    return Err("Expected ')'".to_string());
+                }
+                self.next_token();
+                Ok(Expression::GroupedExpression(Box::new(expr)))
+            }
+            Token::If => self.parse_if_expression(),
+            Token::Identifier(name) => {
+                self.next_token();
+                Ok(Expression::Identifier(name))
+            }
+            _ => Err(format!("Unexpected token: {:?}", self.current_token)),
+        }
+    }
+
+    fn parse_if_expression(&mut self) -> Result<Expression, String> {
+        self.next_token();
+        let condition = self.parse_expression()?;
+        if self.current_token != Token::LBrace {
+            return Err(format!("Expected '{{' after if condition, got {:?}", self.current_token));
+        }
+        let then_branch = self.parse_block()?;
+        let mut else_branch = None;
+        if self.current_token == Token::Else {
+            self.next_token();
+            if self.current_token == Token::LBrace {
+                else_branch = Some(self.parse_block()?);
+            } else {
+                return Err(format!("Expected '{{' after else, got {:?}", self.current_token));
+            }
+        }
+        Ok(Expression::IfElse(Box::new(IfElse {
+            condition,
+            then_branch,
+            else_branch,
+        })))
+    }
+
+    fn parse_block(&mut self) -> Result<Block, String> {
+        self.next_token(); // consume '{' 
+        let mut statements = Vec::new();
+        while self.current_token != Token::RBrace && self.current_token != Token::Eof {
+            statements.push(self.parse_statement()?);
+        }
+
+        if self.current_token != Token::RBrace {
+            return Err("Expected '}' after block".to_string());
+        }
+        self.next_token(); // consume '}'
+
+        let mut expression = None;
+        if let Some(Statement::Expression(expr)) = statements.last() {
+            if let Statement::Expression(expr) = statements.pop().unwrap() {
+                expression = Some(Box::new(expr));
+            }
+        }
+
+        Ok(Block { statements, expression })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{Block, Expression, FunctionDefinition, Literal, Parameter, Program, Statement, Type, SimpleType, BaseType, PrimitiveType};
-    use crate::parser::parse_program;
-    use crate::{Rule, DyegoParser};
-    use pest::Parser;
+    use super::{Lexer, Parser};
+    use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType};
 
-    fn parse(input: &str) -> Program {
-        let mut pairs = DyegoParser::parse(Rule::program, input).unwrap();
-        let pair = pairs.next().unwrap();
-        parse_program(pair)
+    #[test]
+    fn test_parse_number() {
+        let input = "123.45";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Literal(Literal::Float(123.45)));
+        assert_eq!(parser.parse_statement(), Ok(expected));
     }
 
     #[test]
-    fn test_function_definition() {
-        let input = "fun my_func(a: i32): i32 { 1 }";
-        let expected = Program {
-            statements: vec![Statement::Function(FunctionDefinition {
-                name: "my_func".to_string(),
-                parameters: vec![Parameter {
+    fn test_parse_addition() {
+        let input = "1 + 2";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Binary(
+            Box::new(Expression::Literal(Literal::Float(1.0))),
+            BinaryOperator::Add,
+            Box::new(Expression::Literal(Literal::Float(2.0))),
+        ));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_precedence() {
+        let input = "1 + 2 * 3";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Binary(
+            Box::new(Expression::Literal(Literal::Float(1.0))),
+            BinaryOperator::Add,
+            Box::new(Expression::Binary(
+                Box::new(Expression::Literal(Literal::Float(2.0))),
+                BinaryOperator::Multiply,
+                Box::new(Expression::Literal(Literal::Float(3.0))),
+            )),
+        ));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_parentheses() {
+        let input = "(1 + 2) * 3";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Binary(
+            Box::new(Expression::GroupedExpression(Box::new(Expression::Binary(
+                Box::new(Expression::Literal(Literal::Float(1.0))),
+                BinaryOperator::Add,
+                Box::new(Expression::Literal(Literal::Float(2.0))),
+            )))),
+            BinaryOperator::Multiply,
+            Box::new(Expression::Literal(Literal::Float(3.0))),
+        ));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_if_expression() {
+        let input = "if 1 { 2 } else { 3 }";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::IfElse(Box::new(IfElse {
+            condition: Expression::Literal(Literal::Float(1.0)),
+            then_branch: Block {
+                statements: vec![],
+                expression: Some(Box::new(Expression::Literal(Literal::Float(2.0)))),
+            },
+            else_branch: Some(Block {
+                statements: vec![],
+                expression: Some(Box::new(Expression::Literal(Literal::Float(3.0)))),
+            }),
+        })));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_unary_negation() {
+        let input = "-10";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Unary(
+            UnaryOperator::Negate,
+            Box::new(Expression::Literal(Literal::Float(10.0))),
+        ));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_binary_precedence() {
+        let input = "1 + 2 * 3 == 4 / 5 - 6 && 7 > 8 || 9 < 10";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Binary(
+            Box::new(Expression::Binary(
+                Box::new(Expression::Binary(
+                    Box::new(Expression::Binary(
+                        Box::new(Expression::Literal(Literal::Float(1.0))),
+                        BinaryOperator::Add,
+                        Box::new(Expression::Binary(
+                            Box::new(Expression::Literal(Literal::Float(2.0))),
+                            BinaryOperator::Multiply,
+                            Box::new(Expression::Literal(Literal::Float(3.0))),
+                        )),
+                    )),
+                    BinaryOperator::Equality,
+                    Box::new(Expression::Binary(
+                        Box::new(Expression::Binary(
+                            Box::new(Expression::Literal(Literal::Float(4.0))),
+                            BinaryOperator::Divide,
+                            Box::new(Expression::Literal(Literal::Float(5.0))),
+                        )),
+                        BinaryOperator::Subtract,
+                        Box::new(Expression::Literal(Literal::Float(6.0))),
+                    )),
+                )),
+                BinaryOperator::And,
+                Box::new(Expression::Binary(
+                    Box::new(Expression::Literal(Literal::Float(7.0))),
+                    BinaryOperator::GreaterThan,
+                    Box::new(Expression::Literal(Literal::Float(8.0))),
+                )),
+            )),
+            BinaryOperator::Or,
+            Box::new(Expression::Binary(
+                Box::new(Expression::Literal(Literal::Float(9.0))),
+                BinaryOperator::LessThan,
+                Box::new(Expression::Literal(Literal::Float(10.0))),
+            )),
+        ));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_variable_statement() {
+        let input = "val x = 10";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Variable(VariableStatement {
+            mutable: false,
+            name: "x".to_string(),
+            value: Expression::Literal(Literal::Float(10.0)),
+        });
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_function_declaration() {
+        let input = "fun my_func(a: i32, b: f64): bool { 1 }";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Function(FunctionDefinition {
+            name: "my_func".to_string(),
+            parameters: vec![
+                Parameter {
                     name: "a".to_string(),
                     type_annotation: Type::Simple(SimpleType {
-                        base: BaseType::Primitive(PrimitiveType::I32),
+                        base: BaseType::User("i32".to_string()),
                         specifiers: vec![],
                     }),
-                }],
-                return_type: Some(Type::Simple(SimpleType {
-                    base: BaseType::Primitive(PrimitiveType::I32),
-                    specifiers: vec![],
-                })),
-                body: Block {
-                    statements: vec![],
-                    expression: Some(Box::new(Expression::Literal(Literal::Integer(1)))),
                 },
-            })],
-        };
-        assert_eq!(parse(input), expected);
+                Parameter {
+                    name: "b".to_string(),
+                    type_annotation: Type::Simple(SimpleType {
+                        base: BaseType::User("f64".to_string()),
+                        specifiers: vec![],
+                    }),
+                },
+            ],
+            return_type: Some(Type::Simple(SimpleType {
+                base: BaseType::User("bool".to_string()),
+                specifiers: vec![],
+            })),
+            body: Block {
+                statements: vec![],
+                expression: Some(Box::new(Expression::Literal(Literal::Float(1.0)))),
+            },
+        });
+        assert_eq!(parser.parse_statement(), Ok(expected));
     }
 }

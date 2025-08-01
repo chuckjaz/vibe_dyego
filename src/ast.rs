@@ -41,6 +41,22 @@ pub struct Program {
 pub enum Statement {
     Variable(VariableStatement),
     Function(FunctionDefinition),
+    ValueType(ValueTypeDeclaration),
+    Expression(Expression),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ValueTypeDeclaration {
+    pub name: String,
+    pub fields: Vec<ValueField>,
+    pub body: Block,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ValueField {
+    pub mutability: String,
+    pub name: String,
+    pub type_annotation: Type,
 }
 
 #[derive(Debug, PartialEq)]
@@ -73,6 +89,89 @@ pub struct VariableStatement {
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Literal(Literal),
+    Binary(Box<Expression>, BinaryOperator, Box<Expression>),
+    Unary(UnaryOperator, Box<Expression>),
+    Assignment(Box<AssignmentExpression>),
+    FunctionCall(Box<FunctionCall>),
+    ArrayLiteral(Box<ArrayLiteral>),
+    WhileLoop(Box<WhileLoop>),
+    ForLoop(Box<ForLoop>),
+    IfElse(Box<IfElse>),
+    When(Box<WhenExpression>),
+    Identifier(String),
+    GroupedExpression(Box<Expression>),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum BinaryOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    GreaterThan,
+    LessThan,
+    GreaterThanOrEqual,
+    LessThanOrEqual,
+    Equality,
+    Inequality,
+    And,
+    Or,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum UnaryOperator {
+    Negate,
+    Not,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AssignmentExpression {
+    pub name: String,
+    pub value: Expression,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FunctionCall {
+    pub name: String,
+    pub arguments: Vec<Expression>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ArrayLiteral {
+    pub elements: Vec<Expression>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct WhileLoop {
+    pub condition: Expression,
+    pub body: Block,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ForLoop {
+    pub iterator: String,
+    pub iterable: Expression,
+    pub body: Block,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct IfElse {
+    pub condition: Expression,
+    pub then_branch: Block,
+    pub else_branch: Option<Block>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct WhenExpression {
+    pub expression: Expression,
+    pub branches: Vec<WhenBranch>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct WhenBranch {
+    pub condition: Expression,
+    pub result: Expression,
 }
 
 #[derive(Debug, PartialEq)]

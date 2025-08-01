@@ -1,22 +1,14 @@
-extern crate pest;
-#[macro_use]
-extern crate pest_derive;
+mod ast;
+mod parser;
 
-use pest::Parser;
-
-pub mod ast;
-pub mod parser;
-pub mod parser_test;
-
-#[derive(Parser)]
-#[grammar = "dyego.pest"]
-pub struct DyegoParser;
+use parser::{Lexer, Parser};
 
 fn main() {
-    let source = "val a = 10";
-    let result = DyegoParser::parse(Rule::program, source).expect("parse failed").next().unwrap();
-    let ast = parser::parse_program(result);
-    println!("{:#?}", ast);
+    let input = "1 + 2 * 3";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    match parser.parse_expression() {
+        Ok(expr) => println!("{:?}", expr),
+        Err(e) => println!("Error: {}", e),
+    }
 }
-
-
