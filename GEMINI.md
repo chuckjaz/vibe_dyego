@@ -170,6 +170,7 @@ Help implement this language
 The implementation language for this project will primarily be Rust.
 
 1. Do not make primitive types reserved words. They should be, instead, should be symbols that are resolved by an implied prefix module that is implicitly imported and resolved during type checking.
+2. Do not use temporal terms in the source code, such as "new" or "old", as they can become outdated. Refer to items by their specific names or properties instead.
 
 ## Feedback loop
 
