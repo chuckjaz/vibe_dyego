@@ -1,1 +1,3 @@
 Decided to remove the `pest` dependency and implement a manual, recursive-descent parser. This will give us more control over the parsing process and error handling, which is crucial for a good developer experience. It also removes a significant dependency, making the compiler leaner.
+
+I have implemented parsing for value type declarations and fixed a bug in the lexer that was preventing identifiers with numbers from being parsed correctly. I also silenced the dead code warnings in the AST, which will be addressed as the language implementation progresses.
