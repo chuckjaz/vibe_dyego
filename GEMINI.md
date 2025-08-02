@@ -186,3 +186,4 @@ The implementation language for this project will primarily be Rust.
         *   How to deploy
     *   Keep `README.md` current with the latest features and installation instructions.
     *   The `Syntax` section of `README.md` must be kept in sync with `src/parser.rs`.
+    *   All tests must pass before committing any changes.

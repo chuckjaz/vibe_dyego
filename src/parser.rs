@@ -290,7 +290,7 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    // value_type_declaration ::= 'value' identifier '(' (value_field (',' value_field)*)? ')' block
+    // value_type_declaration ::= 'value' identifier ('(' (value_field (',' value_field)*)? ')')? block
     fn parse_value_type_declaration(&mut self) -> Result<Statement, String> {
         self.expect_token(Token::Value)?;
 
@@ -300,18 +300,20 @@ impl<'a> Parser<'a> {
         };
         self.next_token(); // consume value type name
 
-        self.expect_token(Token::LParen)?;
-
         let mut fields = Vec::new();
-        if self.current_token != Token::RParen {
-            fields.push(self.parse_value_field()?);
-            while self.current_token == Token::Comma {
-                self.next_token(); // consume ','
+        if self.current_token == Token::LParen {
+            self.next_token(); // consume '('
+
+            if self.current_token != Token::RParen {
                 fields.push(self.parse_value_field()?);
+                while self.current_token == Token::Comma {
+                    self.next_token(); // consume ','
+                    fields.push(self.parse_value_field()?);
+                }
             }
+            self.expect_token(Token::RParen)?;
         }
 
-        self.expect_token(Token::RParen)?;
         self.require_token(Token::LBrace)?;
 
         let body = self.parse_block()?;
@@ -803,7 +805,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_value_type_declaration() {
+    fn test_parse_value_type_declaration_with_fields() {
         let input = "value Point(val x: i32, var y: i32) { 1 }";
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -827,6 +829,38 @@ mod tests {
                     }),
                 },
             ],
+            body: Block {
+                statements: vec![],
+                expression: Some(Box::new(Expression::Literal(Literal::Integer(1)))),
+            },
+        });
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_value_type_declaration_no_fields() {
+        let input = "value Point { 1 }";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::ValueType(ValueTypeDeclaration {
+            name: "Point".to_string(),
+            fields: vec![],
+            body: Block {
+                statements: vec![],
+                expression: Some(Box::new(Expression::Literal(Literal::Integer(1)))),
+            },
+        });
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_value_type_declaration_empty_fields() {
+        let input = "value Point() { 1 }";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::ValueType(ValueTypeDeclaration {
+            name: "Point".to_string(),
+            fields: vec![],
             body: Block {
                 statements: vec![],
                 expression: Some(Box::new(Expression::Literal(Literal::Integer(1)))),
