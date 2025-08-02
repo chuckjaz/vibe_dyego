@@ -4,7 +4,8 @@ use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, 
 pub enum Token {
     // Parameterized values
     Identifier(String),
-    Number(f64),
+    Integer(u64),
+    Float(f64),
 
     // Operators
     AmpersandAmpersand,
@@ -154,11 +155,30 @@ impl<'a> Lexer<'a> {
 
     fn read_number(&mut self) -> Token {
         let start = self.position;
-        while self.ch.is_ascii_digit() || self.ch == b'.' {
+        let mut is_float = false;
+        while self.ch.is_ascii_digit() {
+            if self.peek_char() == b'.' {
+                is_float = true;
+            }
             self.read_char();
         }
+
+        if is_float {
+            if self.ch == b'.' {
+                self.read_char();
+                while self.ch.is_ascii_digit() {
+                    self.read_char();
+                }
+                let number_str = &self.input[start..self.position];
+                return Token::Float(number_str.parse().unwrap());
+            }
+        }
+
         let number_str = &self.input[start..self.position];
-        Token::Number(number_str.parse().unwrap())
+        if let Ok(val) = number_str.parse::<u64>() {
+            return Token::Integer(val);
+        }
+        Token::Illegal
     }
 
     fn read_identifier(&mut self) -> Token {
@@ -510,7 +530,11 @@ impl<'a> Parser<'a> {
 
     fn parse_primary(&mut self) -> Result<Expression, String> {
         match self.current_token.clone() {
-            Token::Number(n) => {
+            Token::Integer(n) => {
+                self.next_token();
+                Ok(Expression::Literal(Literal::Integer(n)))
+            }
+            Token::Float(n) => {
                 self.next_token();
                 Ok(Expression::Literal(Literal::Float(n)))
             }
@@ -584,11 +608,20 @@ mod tests {
     use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType, ValueTypeDeclaration, ValueField, Mutability};
 
     #[test]
-    fn test_parse_number() {
+    fn test_parse_float() {
         let input = "123.45";
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let expected = Statement::Expression(Expression::Literal(Literal::Float(123.45)));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_integer() {
+        let input = "123";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Literal(Literal::Integer(123)));
         assert_eq!(parser.parse_statement(), Ok(expected));
     }
 
@@ -598,9 +631,9 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let expected = Statement::Expression(Expression::Binary(
-            Box::new(Expression::Literal(Literal::Float(1.0))),
+            Box::new(Expression::Literal(Literal::Integer(1))),
             BinaryOperator::Add,
-            Box::new(Expression::Literal(Literal::Float(2.0))),
+            Box::new(Expression::Literal(Literal::Integer(2))),
         ));
         assert_eq!(parser.parse_statement(), Ok(expected));
     }
@@ -611,12 +644,12 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let expected = Statement::Expression(Expression::Binary(
-            Box::new(Expression::Literal(Literal::Float(1.0))),
+            Box::new(Expression::Literal(Literal::Integer(1))),
             BinaryOperator::Add,
             Box::new(Expression::Binary(
-                Box::new(Expression::Literal(Literal::Float(2.0))),
+                Box::new(Expression::Literal(Literal::Integer(2))),
                 BinaryOperator::Multiply,
-                Box::new(Expression::Literal(Literal::Float(3.0))),
+                Box::new(Expression::Literal(Literal::Integer(3))),
             )),
         ));
         assert_eq!(parser.parse_statement(), Ok(expected));
@@ -629,12 +662,12 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let expected = Statement::Expression(Expression::Binary(
             Box::new(Expression::GroupedExpression(Box::new(Expression::Binary(
-                Box::new(Expression::Literal(Literal::Float(1.0))),
+                Box::new(Expression::Literal(Literal::Integer(1))),
                 BinaryOperator::Add,
-                Box::new(Expression::Literal(Literal::Float(2.0))),
+                Box::new(Expression::Literal(Literal::Integer(2))),
             )))),
             BinaryOperator::Multiply,
-            Box::new(Expression::Literal(Literal::Float(3.0))),
+            Box::new(Expression::Literal(Literal::Integer(3))),
         ));
         assert_eq!(parser.parse_statement(), Ok(expected));
     }
@@ -645,14 +678,14 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let expected = Statement::Expression(Expression::IfElse(Box::new(IfElse {
-            condition: Expression::Literal(Literal::Float(1.0)),
+            condition: Expression::Literal(Literal::Integer(1)),
             then_branch: Block {
                 statements: vec![],
-                expression: Some(Box::new(Expression::Literal(Literal::Float(2.0)))),
+                expression: Some(Box::new(Expression::Literal(Literal::Integer(2)))),
             },
             else_branch: Some(Block {
                 statements: vec![],
-                expression: Some(Box::new(Expression::Literal(Literal::Float(3.0)))),
+                expression: Some(Box::new(Expression::Literal(Literal::Integer(3)))),
             }),
         })));
         assert_eq!(parser.parse_statement(), Ok(expected));
@@ -665,7 +698,7 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let expected = Statement::Expression(Expression::Unary(
             UnaryOperator::Negate,
-            Box::new(Expression::Literal(Literal::Float(10.0))),
+            Box::new(Expression::Literal(Literal::Integer(10))),
         ));
         assert_eq!(parser.parse_statement(), Ok(expected));
     }
@@ -679,37 +712,37 @@ mod tests {
             Box::new(Expression::Binary(
                 Box::new(Expression::Binary(
                     Box::new(Expression::Binary(
-                        Box::new(Expression::Literal(Literal::Float(1.0))),
+                        Box::new(Expression::Literal(Literal::Integer(1))),
                         BinaryOperator::Add,
                         Box::new(Expression::Binary(
-                            Box::new(Expression::Literal(Literal::Float(2.0))),
+                            Box::new(Expression::Literal(Literal::Integer(2))),
                             BinaryOperator::Multiply,
-                            Box::new(Expression::Literal(Literal::Float(3.0))),
+                            Box::new(Expression::Literal(Literal::Integer(3))),
                         )),
                     )),
                     BinaryOperator::Equality,
                     Box::new(Expression::Binary(
                         Box::new(Expression::Binary(
-                            Box::new(Expression::Literal(Literal::Float(4.0))),
+                            Box::new(Expression::Literal(Literal::Integer(4))),
                             BinaryOperator::Divide,
-                            Box::new(Expression::Literal(Literal::Float(5.0))),
+                            Box::new(Expression::Literal(Literal::Integer(5))),
                         )),
                         BinaryOperator::Subtract,
-                        Box::new(Expression::Literal(Literal::Float(6.0))),
+                        Box::new(Expression::Literal(Literal::Integer(6))),
                     )),
                 )),
                 BinaryOperator::And,
                 Box::new(Expression::Binary(
-                    Box::new(Expression::Literal(Literal::Float(7.0))),
+                    Box::new(Expression::Literal(Literal::Integer(7))),
                     BinaryOperator::GreaterThan,
-                    Box::new(Expression::Literal(Literal::Float(8.0))),
+                    Box::new(Expression::Literal(Literal::Integer(8))),
                 )),
             )),
             BinaryOperator::Or,
             Box::new(Expression::Binary(
-                Box::new(Expression::Literal(Literal::Float(9.0))),
+                Box::new(Expression::Literal(Literal::Integer(9))),
                 BinaryOperator::LessThan,
-                Box::new(Expression::Literal(Literal::Float(10.0))),
+                Box::new(Expression::Literal(Literal::Integer(10))),
             )),
         ));
         assert_eq!(parser.parse_statement(), Ok(expected));
@@ -723,7 +756,7 @@ mod tests {
         let expected = Statement::Variable(VariableStatement {
             mutable: false,
             name: "x".to_string(),
-            value: Expression::Literal(Literal::Float(10.0)),
+            value: Expression::Literal(Literal::Integer(10)),
         });
         assert_eq!(parser.parse_statement(), Ok(expected));
     }
@@ -757,7 +790,7 @@ mod tests {
             })),
             body: Block {
                 statements: vec![],
-                expression: Some(Box::new(Expression::Literal(Literal::Float(1.0)))),
+                expression: Some(Box::new(Expression::Literal(Literal::Integer(1)))),
             },
         });
         assert_eq!(parser.parse_statement(), Ok(expected));
@@ -790,7 +823,7 @@ mod tests {
             ],
             body: Block {
                 statements: vec![],
-                expression: Some(Box::new(Expression::Literal(Literal::Float(1.0)))),
+                expression: Some(Box::new(Expression::Literal(Literal::Integer(1)))),
             },
         });
         assert_eq!(parser.parse_statement(), Ok(expected));

@@ -189,7 +189,7 @@ pub struct WhenBranch {
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum Literal {
-    Integer(i64),
+    Integer(u64),
     Float(f64),
     String(String),
     Boolean(bool),
