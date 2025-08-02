@@ -14,7 +14,6 @@ pub struct SimpleType {
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum BaseType {
-    Primitive(PrimitiveType),
     User(String),
 }
 
@@ -23,17 +22,6 @@ pub enum BaseType {
 pub enum TypeSpecifier {
     Array,
     Optional,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-#[allow(dead_code)]
-pub enum PrimitiveType {
-    I8, I16, I32, I64,
-    U8, U16, U32, U64,
-    F32, F64,
-    Boolean,
-    Rune,
-    String,
 }
 
 #[derive(Debug, PartialEq)]

@@ -20,7 +20,25 @@ Here are the established syntax and semantic rules:
 
     `var fieldName: Type` (inside a value type): Declares a mutable field. It's settable during initialization and can be reassigned/modified later by mutating methods, provided the value instance it belongs to is itself a var variable.
 
-3.  Arrays
+    A value can be constructed using `[varField: expr, valField: expr]` syntax where the `varField: expr` will be the value of `varField` in the value.
+
+3.  Reference Value Types
+
+    Declaration: `object TypeName(valField: Type, var varField: Type) { ... }`
+
+    The `object` declaration has the same syntax as `value` except using the `object` keyword.
+
+    The `object` keyword marks a new reference value type whose instances follow value semantics. The primary difference from a `value` type and `object` type is the value is imbedded in its storage context and an object is a reference to a heap location for a value. In Rust terms, `value` is a `struct`,  `object` is a `Box<T>` for the value type implied by its fields and methods. A `value` type can be converted into an `object` by prefixing it with `object` such as `val p: object Point = [x: 10, y: 20]`.
+
+3.  Tuple types
+
+    Declaration: `(Type, Type, Type)`
+
+    Expression: `(expr, expr, expr)`
+
+    Type is a value type with anonymous fields that can only be access individually through destructuring. For example, `val (a, b) = (1, 2)` creates a tuple `(1, 2)` and then simultaneously assigns the value `1` to `a` and `2` to `b`. The `_` reserved name can be used to ignore a value such as `val t = (1, 2, 3); val (_, b _) = t` will assign `2` to `b` while ignoring `1` and `3`.
+
+4.  Arrays
 
     Syntax: Array literals `[element1, element2, ...]` create a `Type[]` (e.g., `i32[]`).
 
@@ -30,7 +48,7 @@ Here are the established syntax and semantic rules:
 
     `var myArr = [1, 2]` creates an independent, mutable array copy.
 
-4.  Functions
+5.  Functions
 
     Syntax: `fun functionName(parameter1: Type1, parameter2: Type2): ReturnType { ... }`
 
@@ -40,7 +58,7 @@ Here are the established syntax and semantic rules:
 
     The value of the last expression in the function is the value returned by the function.
 
-5.  Methods on value Types
+6.  Methods on value Types
 
     Non-Mutating Methods: `fun methodName() { ... }`
 
@@ -58,27 +76,25 @@ Here are the established syntax and semantic rules:
 
     Initialization Context: Inside a value type's initializer, this is implicitly var to allow for the setup of its fields.
 
-6.  Expression Syntax
+7.  Expression Syntax
 
     Operators: The language supports operators mirroring Kotlin's, with standard precedence rules.
 
-    No Object Identity Comparison (`===`): The language explicitly does not include a triple equals (`===`) operator.
-
     Structural Equality (`==`): The `==` operator performs structural equality comparison, which recursively compares the contents of two values. Two value instances are equal if they are of the same type and all their corresponding fields are equal. Two arrays are equal if they have the same length and their elements at each index are equal.
 
-    Assignment Expression Behavior: Uniquely, an assignment expression evaluates to the previous value of the variable on the left-hand side.
+    Reference Identity Comparison (`===`) and (`!==`) only apply to `object` instances and are not legal on `value` types.
 
-7.  Lambda Syntax
+8.  Lambda Syntax
 
     Basic Lambda: `{ param1: Type1 -> expression_or_block }`
 
     Trailing Lambda: A lambda argument can be moved outside the function call parentheses if it's the last argument.
 
-8.  Named Arguments
+9.  Named Arguments
 
     You can name arguments in function calls using parameterName = argumentValue. Once a named argument is used, all subsequent arguments must also be named.
 
-9.  Output Model
+10.  Output Model
 
     Target: Exclusively WebAssembly (WASM).
 
@@ -86,7 +102,7 @@ Here are the established syntax and semantic rules:
 
     Memory Management: Hybrid strategy using WASM GC for value types and Reference Counting for primitive arrays.
 
-10. Type System: Generics & Type Inferencing
+11. Type System: Generics & Type Inferencing
 
     Generic Types: `value Box<T>(...)`,` fun <T> identity(value: T): T`, and `Type[]` are all supported.
 
@@ -94,21 +110,25 @@ Here are the established syntax and semantic rules:
 
     Type Casting (`as` operator): expression `as Type` evaluates to `Type | Null`, returning the converted value on success or `Null` on failure.
 
-11. Primitive Types
+12. Primitive Types
 
-    Integers: `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
+    Integers: `I8`, `I16`, `I32`, `I64`, `U8`, `U16`, `U32`, `U64`.
 
-    Floating-Point: `f32`, `f64`.
+    Floating-Point: `F32`, `F64`.
 
-    Other: `Boolean`, `Rune`, String (implemented as a `u8[]` encoded as UTF-8).
+    Other: `Boolean`, `Rune`, `String` (implemented as a `U8[]` encoded as UTF-8), `Null`, `Never`
 
     Overflow: Integer operations wrap around.
 
-12. Control Flow
+    The primitive types are not reserved words. The are implicitly imported types from the Dyego prefix module.
+    The prefix module also includes `Int` which is an alias for `I32` and `Float` which is an alias for `F32`
+    and `Double` which is an alias for `F64`.
+
+13. Control Flow
 
     Standard `if`/`else` (as expressions), `when` expressions, `for` loops, and `while` loops. Labeled `break` and `continue` are supported.
 
-13. Union Types and `Null`
+14. Union Types and `Null`
 
     The language uses union types to represent a value that could be one of several types, written as `TypeA | TypeB`.
 
@@ -116,7 +136,7 @@ Here are the established syntax and semantic rules:
 
     Optional Type Shorthand: The `Type?` syntax is a shorthand for the union type `Type | Null`. All types are non-nullable by default.
 
-14. Error Handling
+15. Error Handling
 
     Errors are represented by values. Any value type can be designated as an error by implementing the built-in `Error` trait.
 
@@ -124,7 +144,7 @@ Here are the established syntax and semantic rules:
 
     This approach allows for detailed, type-safe error information to be returned without resorting to exceptions.
 
-15. Error Handling Operators
+16. Error Handling Operators
 
     Propagation Operator (`?`): `expression?` immediately returns an Error value from the current function or evaluates to the success value.
 
@@ -132,23 +152,23 @@ Here are the established syntax and semantic rules:
 
     Safe-Call Operator (`?.`): `expression?.member` accesses member only if expression is not an Error; otherwise, it propagates the error.
 
-16. Basic Input/Output
+17. Basic Input/Output
 
     The only built-in I/O is a print function. All other I/O must be imported from external modules.
 
-17. Standard Array Operations
+18. Standard Array Operations
 
     Includes length property, `[]` access/assignment, and built-in `var fun` methods `add` and `remove`. Higher-order functions like `map` must be imported.
 
-18. Built-in Math Operations
+19. Built-in Math Operations
 
-    For floating-point types (`f32`, `f64`), provides direct WASM-mapped functions: `abs(value)`, `sqrt(value)`, `min(value1, value2)`, `max(value1, value2)`.
+    For floating-point types (`F32`, `F64`), provides direct WASM-mapped functions: `abs(value)`, `sqrt(value)`, `min(value1, value2)`, `max(value1, value2)`.
 
-19. Standard String Operations
+20. Standard String Operations
 
     Advanced string manipulation must be imported from standard library modules.
 
-20. Modules and Imports
+21. Modules and Imports
 
     The language uses a module system with syntax inspired by Rust to organize and reuse code.
 
@@ -158,7 +178,7 @@ Here are the established syntax and semantic rules:
 
     Trait Imports: Using the `trait` keyword in a path brings all trait implementations from that module into the current scope, making extension methods available (e.g., `import my_lib.extensions.trait`).
 
-21. By convention, source files for dyego end in `.dg`.
+22. By convention, source files for dyego end in `.dg`.
 
 
 Help implement this language
@@ -178,6 +198,7 @@ The implementation language for this project will primarily be Rust.
 
 2.  Ensure there is an `AI_REASONING.md` to make sure the future you (AI) can read and stay up-to-date. When loading make sure to load/read both `GEMINI.md` and `AI_REASONING.md`. Keep in mind the difference:
     *   `GEMINI.md` instructs you (AI)
+    *   Fix any formatting, grammar or outline number inconsistencies you find in any `.md` file including this one.
     *   `AI_REASONING.md` for you to dump your thoughts across installations. Say you're in the middle of a something, or you took a decision about something, dump it there.
     *   a `README.md` for any other user to immediately understand:
         *   How to use the dyego

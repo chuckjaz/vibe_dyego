@@ -233,7 +233,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // statement ::= variable_statement | function_statement | value_type_declaration | expression_statement
     fn require_token(&mut self, expected: Token) -> Result<(), String> {
         if self.current_token == expected {
             Ok(())
