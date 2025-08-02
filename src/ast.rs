@@ -1,4 +1,5 @@
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum Type {
     Simple(SimpleType),
     Union(Vec<SimpleType>),
@@ -11,18 +12,21 @@ pub struct SimpleType {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum BaseType {
     Primitive(PrimitiveType),
     User(String),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+#[allow(dead_code)]
 pub enum TypeSpecifier {
     Array,
     Optional,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+#[allow(dead_code)]
 pub enum PrimitiveType {
     I8, I16, I32, I64,
     U8, U16, U32, U64,
@@ -33,6 +37,7 @@ pub enum PrimitiveType {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub struct Program {
     pub statements: Vec<Statement>,
 }
@@ -53,8 +58,14 @@ pub struct ValueTypeDeclaration {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum Mutability {
+    Val,
+    Var,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct ValueField {
-    pub mutability: String,
+    pub mutability: Mutability,
     pub name: String,
     pub type_annotation: Type,
 }
@@ -87,6 +98,7 @@ pub struct VariableStatement {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum Expression {
     Literal(Literal),
     Binary(Box<Expression>, BinaryOperator, Box<Expression>),
@@ -175,6 +187,7 @@ pub struct WhenBranch {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum Literal {
     Integer(i64),
     Float(f64),

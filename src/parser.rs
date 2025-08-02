@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType};
+use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType, ValueTypeDeclaration, ValueField, Mutability};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -34,6 +34,7 @@ pub enum Token {
     Fun,
     Colon,
     Comma,
+    Value,
 }
 
 pub struct Lexer<'a> {
@@ -159,7 +160,7 @@ impl<'a> Lexer<'a> {
 
     fn read_identifier(&mut self) -> Token {
         let start = self.position;
-        while self.ch.is_ascii_alphabetic() || self.ch == b'_' {
+        while self.ch.is_ascii_alphanumeric() || self.ch == b'_' {
             self.read_char();
         }
         let ident = &self.input[start..self.position];
@@ -169,6 +170,7 @@ impl<'a> Lexer<'a> {
             "val" => Token::Val,
             "var" => Token::Var,
             "fun" => Token::Fun,
+            "value" => Token::Value,
             _ => Token::Identifier(ident.to_string()),
         }
     }
@@ -203,6 +205,7 @@ impl<'a> Parser<'a> {
         match self.current_token {
             Token::Val | Token::Var => self.parse_variable_statement(),
             Token::Fun => self.parse_function_statement(),
+            Token::Value => self.parse_value_type_declaration(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -244,6 +247,47 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    fn parse_value_type_declaration(&mut self) -> Result<Statement, String> {
+        self.next_token(); // consume 'value'
+
+        let name = match self.current_token.clone() {
+            Token::Identifier(name) => name,
+            _ => return Err(format!("Expected value type name, got {:?}", self.current_token)),
+        };
+        self.next_token(); // consume value type name
+
+        if self.current_token != Token::LParen {
+            return Err(format!("Expected '(' after value type name, got {:?}", self.current_token));
+        }
+        self.next_token(); // consume '('
+
+        let mut fields = Vec::new();
+        if self.current_token != Token::RParen {
+            fields.push(self.parse_value_field()?);
+            while self.current_token == Token::Comma {
+                self.next_token(); // consume ','
+                fields.push(self.parse_value_field()?);
+            }
+        }
+
+        if self.current_token != Token::RParen {
+            return Err(format!("Expected ')' after value type fields, got {:?}", self.current_token));
+        }
+        self.next_token(); // consume ')'
+
+        if self.current_token != Token::LBrace {
+            return Err(format!("Expected '{{' before value type body, got {:?}", self.current_token));
+        }
+
+        let body = self.parse_block()?;
+
+        Ok(Statement::ValueType(ValueTypeDeclaration {
+            name,
+            fields,
+            body,
+        }))
+    }
+
     fn parse_function_parameters(&mut self) -> Result<Vec<Parameter>, String> {
         let mut params = Vec::new();
         if self.current_token == Token::RParen {
@@ -281,6 +325,34 @@ impl<'a> Parser<'a> {
         let type_annotation = self.parse_type()?;
 
         Ok(Parameter { name, type_annotation })
+    }
+
+    fn parse_value_field(&mut self) -> Result<ValueField, String> {
+        let mutability = match self.current_token {
+            Token::Val => Mutability::Val,
+            Token::Var => Mutability::Var,
+            _ => return Err(format!("Expected 'val' or 'var' for value field, got {:?}", self.current_token)),
+        };
+        self.next_token(); // consume 'val' or 'var'
+
+        let name = match self.current_token.clone() {
+            Token::Identifier(name) => name,
+            _ => return Err(format!("Expected field name, got {:?}", self.current_token)),
+        };
+        self.next_token(); // consume field name
+
+        if self.current_token != Token::Colon {
+            return Err(format!("Expected ':' after field name, got {:?}", self.current_token));
+        }
+        self.next_token(); // consume ':'
+
+        let type_annotation = self.parse_type()?;
+
+        Ok(ValueField {
+            mutability,
+            name,
+            type_annotation,
+        })
     }
 
     fn parse_type(&mut self) -> Result<Type, String> {
@@ -493,7 +565,7 @@ impl<'a> Parser<'a> {
         self.next_token(); // consume '}'
 
         let mut expression = None;
-        if let Some(Statement::Expression(expr)) = statements.last() {
+        if let Some(Statement::Expression(_expr)) = statements.last() {
             if let Statement::Expression(expr) = statements.pop().unwrap() {
                 expression = Some(Box::new(expr));
             }
@@ -506,7 +578,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::{Lexer, Parser};
-    use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType};
+    use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType, ValueTypeDeclaration, ValueField, Mutability};
 
     #[test]
     fn test_parse_number() {
@@ -680,6 +752,39 @@ mod tests {
                 base: BaseType::User("bool".to_string()),
                 specifiers: vec![],
             })),
+            body: Block {
+                statements: vec![],
+                expression: Some(Box::new(Expression::Literal(Literal::Float(1.0)))),
+            },
+        });
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_value_type_declaration() {
+        let input = "value Point(val x: i32, var y: i32) { 1 }";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::ValueType(ValueTypeDeclaration {
+            name: "Point".to_string(),
+            fields: vec![
+                ValueField {
+                    mutability: Mutability::Val,
+                    name: "x".to_string(),
+                    type_annotation: Type::Simple(SimpleType {
+                        base: BaseType::User("i32".to_string()),
+                        specifiers: vec![],
+                    }),
+                },
+                ValueField {
+                    mutability: Mutability::Var,
+                    name: "y".to_string(),
+                    type_annotation: Type::Simple(SimpleType {
+                        base: BaseType::User("i32".to_string()),
+                        specifiers: vec![],
+                    }),
+                },
+            ],
             body: Block {
                 statements: vec![],
                 expression: Some(Box::new(Expression::Literal(Literal::Float(1.0)))),

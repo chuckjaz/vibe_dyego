@@ -169,6 +169,8 @@ Help implement this language
 
 The implementation language for this project will primarily be Rust.
 
+1. Do not make primitive types reserved words. They should be, instead, should be symbols that are resolved by an implied prefix module that is implicitly imported and resolved during type checking.
+
 ## Feedback loop
 
 1. Since Gemini would be invoked multiple times, make sure to understand the context in `GEMINI.md`. For instance, if it tells you to 'add function a,b' and you see functions a,b,c, **do not** delete `c`. Most likely there's an undocumented reason why this was done.
@@ -182,3 +184,4 @@ The implementation language for this project will primarily be Rust.
         * What it does
         * How to deploy
     * Keep `README.md` current with the latest features and installation instructions.
+
