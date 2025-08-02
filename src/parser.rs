@@ -233,8 +233,31 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn require_token(&mut self, expected: Token) -> Result<(), String> {
+        if self.current_token == expected {
+            Ok(())
+        } else {
+            Err(format!(
+                "Expected token {:?}, got {:?}",
+                expected,
+                self.current_token
+            ))
+        }
+
+    }
+
+    fn expect_token(&mut self, expected: Token) -> Result<(), String> {
+        match self.require_token(expected) {
+            Ok(()) => {
+                self.next_token();
+                Ok(())
+            }
+            Err(message) => Err(message)
+        }
+    }
+
     fn parse_function_statement(&mut self) -> Result<Statement, String> {
-        self.next_token(); // consume 'fun'
+        self.expect_token(Token::Fun)?;
 
         let name = match self.current_token.clone() {
             Token::Identifier(name) => name,
@@ -242,10 +265,7 @@ impl<'a> Parser<'a> {
         };
         self.next_token(); // consume function name
 
-        if self.current_token != Token::LParen {
-            return Err(format!("Expected '(' after function name, got {:?}", self.current_token));
-        }
-        self.next_token(); // consume '('
+        self.expect_token(Token::LParen)?;
 
         let parameters = self.parse_function_parameters()?;
 
@@ -256,9 +276,7 @@ impl<'a> Parser<'a> {
             None
         };
 
-        if self.current_token != Token::LBrace {
-            return Err(format!("Expected '{{' before function body, got {:?}", self.current_token));
-        }
+        self.require_token(Token::LBrace)?;
 
         let body = self.parse_block()?;
 
@@ -271,7 +289,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_value_type_declaration(&mut self) -> Result<Statement, String> {
-        self.next_token(); // consume 'value'
+        self.expect_token(Token::Value)?;
 
         let name = match self.current_token.clone() {
             Token::Identifier(name) => name,
@@ -279,10 +297,7 @@ impl<'a> Parser<'a> {
         };
         self.next_token(); // consume value type name
 
-        if self.current_token != Token::LParen {
-            return Err(format!("Expected '(' after value type name, got {:?}", self.current_token));
-        }
-        self.next_token(); // consume '('
+        self.expect_token(Token::LParen)?;
 
         let mut fields = Vec::new();
         if self.current_token != Token::RParen {
@@ -293,14 +308,8 @@ impl<'a> Parser<'a> {
             }
         }
 
-        if self.current_token != Token::RParen {
-            return Err(format!("Expected ')' after value type fields, got {:?}", self.current_token));
-        }
-        self.next_token(); // consume ')'
-
-        if self.current_token != Token::LBrace {
-            return Err(format!("Expected '{{' before value type body, got {:?}", self.current_token));
-        }
+        self.expect_token(Token::RParen)?;
+        self.require_token(Token::LBrace)?;
 
         let body = self.parse_block()?;
 
@@ -325,10 +334,7 @@ impl<'a> Parser<'a> {
             params.push(self.parse_parameter()?);
         }
 
-        if self.current_token != Token::RParen {
-            return Err(format!("Expected ')' after parameters, got {:?}", self.current_token));
-        }
-        self.next_token(); // consume ')'
+        self.expect_token(Token::RParen)?;
 
         Ok(params)
     }
@@ -340,10 +346,7 @@ impl<'a> Parser<'a> {
         };
         self.next_token(); // consume param name
 
-        if self.current_token != Token::Colon {
-            return Err(format!("Expected ':' after parameter name, got {:?}", self.current_token));
-        }
-        self.next_token(); // consume ':'
+        self.expect_token(Token::Colon)?;
 
         let type_annotation = self.parse_type()?;
 
@@ -364,10 +367,7 @@ impl<'a> Parser<'a> {
         };
         self.next_token(); // consume field name
 
-        if self.current_token != Token::Colon {
-            return Err(format!("Expected ':' after field name, got {:?}", self.current_token));
-        }
-        self.next_token(); // consume ':'
+        self.expect_token(Token::Colon)?;
 
         let type_annotation = self.parse_type()?;
 
@@ -401,10 +401,7 @@ impl<'a> Parser<'a> {
         };
         self.next_token(); // consume identifier
 
-        if self.current_token != Token::Equal {
-            return Err(format!("Expected '=', got {:?}", self.current_token));
-        }
-        self.next_token(); // consume '='
+        self.expect_token(Token::Equal)?;
 
         let value = self.parse_expression()?;
 
@@ -541,10 +538,7 @@ impl<'a> Parser<'a> {
             Token::LParen => {
                 self.next_token();
                 let expr = self.parse_expression()?;
-                if self.current_token != Token::RParen {
-                    return Err("Expected ')'".to_string());
-                }
-                self.next_token();
+                self.expect_token(Token::RParen)?;
                 Ok(Expression::GroupedExpression(Box::new(expr)))
             }
             Token::If => self.parse_if_expression(),
@@ -557,20 +551,15 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_if_expression(&mut self) -> Result<Expression, String> {
-        self.next_token();
+        self.expect_token(Token::If)?;
         let condition = self.parse_expression()?;
-        if self.current_token != Token::LBrace {
-            return Err(format!("Expected '{{' after if condition, got {:?}", self.current_token));
-        }
+        self.require_token(Token::LBrace)?;
         let then_branch = self.parse_block()?;
         let mut else_branch = None;
         if self.current_token == Token::Else {
             self.next_token();
-            if self.current_token == Token::LBrace {
-                else_branch = Some(self.parse_block()?);
-            } else {
-                return Err(format!("Expected '{{' after else, got {:?}", self.current_token));
-            }
+            self.require_token(Token::LBrace)?;
+            else_branch = Some(self.parse_block()?);
         }
         Ok(Expression::IfElse(Box::new(IfElse {
             condition,
@@ -580,16 +569,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_block(&mut self) -> Result<Block, String> {
-        self.next_token(); // consume '{' 
+        self.expect_token(Token::LBrace)?;
         let mut statements = Vec::new();
         while self.current_token != Token::RBrace && self.current_token != Token::Eof {
             statements.push(self.parse_statement()?);
         }
 
-        if self.current_token != Token::RBrace {
-            return Err("Expected '}' after block".to_string());
-        }
-        self.next_token(); // consume '}'
+        self.expect_token(Token::RBrace)?;
 
         let mut expression = None;
         if let Some(Statement::Expression(_expr)) = statements.last() {
