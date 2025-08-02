@@ -233,6 +233,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // statement ::= variable_statement | function_statement | value_type_declaration | expression_statement
     fn require_token(&mut self, expected: Token) -> Result<(), String> {
         if self.current_token == expected {
             Ok(())
@@ -256,6 +257,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // function_statement ::= 'fun' identifier '(' function_parameters ')' (':' type)? block
     fn parse_function_statement(&mut self) -> Result<Statement, String> {
         self.expect_token(Token::Fun)?;
 
@@ -288,6 +290,7 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    // value_type_declaration ::= 'value' identifier '(' (value_field (',' value_field)*)? ')' block
     fn parse_value_type_declaration(&mut self) -> Result<Statement, String> {
         self.expect_token(Token::Value)?;
 
@@ -320,6 +323,7 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    // function_parameters ::= (parameter (',' parameter)*)?
     fn parse_function_parameters(&mut self) -> Result<Vec<Parameter>, String> {
         let mut params = Vec::new();
         if self.current_token == Token::RParen {
@@ -339,6 +343,7 @@ impl<'a> Parser<'a> {
         Ok(params)
     }
 
+    // parameter ::= identifier ':' type
     fn parse_parameter(&mut self) -> Result<Parameter, String> {
         let name = match self.current_token.clone() {
             Token::Identifier(name) => name,
@@ -353,6 +358,7 @@ impl<'a> Parser<'a> {
         Ok(Parameter { name, type_annotation })
     }
 
+    // value_field ::= ('val' | 'var') identifier ':' type
     fn parse_value_field(&mut self) -> Result<ValueField, String> {
         let mutability = match self.current_token {
             Token::Val => Mutability::Val,
@@ -378,6 +384,7 @@ impl<'a> Parser<'a> {
         })
     }
 
+    // type ::= identifier
     fn parse_type(&mut self) -> Result<Type, String> {
         let base_type = match self.current_token.clone() {
             Token::Identifier(name) => BaseType::User(name),
@@ -391,6 +398,7 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    // variable_statement ::= ('val' | 'var') identifier '=' expression
     fn parse_variable_statement(&mut self) -> Result<Statement, String> {
         let mutable = self.current_token == Token::Var;
         self.next_token(); // consume 'val' or 'var'
@@ -412,15 +420,18 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    // expression_statement ::= expression
     fn parse_expression_statement(&mut self) -> Result<Statement, String> {
         let expr = self.parse_expression()?;
         Ok(Statement::Expression(expr))
     }
 
+    // expression ::= logical_or
     pub fn parse_expression(&mut self) -> Result<Expression, String> {
         self.parse_logical_or()
     }
 
+    // logical_or ::= logical_and ('||' logical_and)*
     fn parse_logical_or(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_logical_and()?;
         while self.current_token == Token::PipePipe {
@@ -432,6 +443,7 @@ impl<'a> Parser<'a> {
         Ok(left)
     }
 
+    // logical_and ::= equality ('&&' equality)*
     fn parse_logical_and(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_equality()?;
         while self.current_token == Token::AmpersandAmpersand {
@@ -443,6 +455,7 @@ impl<'a> Parser<'a> {
         Ok(left)
     }
 
+    // equality ::= comparison (('==' | '!=') comparison)*
     fn parse_equality(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_comparison()?;
         while self.current_token == Token::EqualEqual || self.current_token == Token::BangEqual {
@@ -458,6 +471,7 @@ impl<'a> Parser<'a> {
         Ok(left)
     }
 
+    // comparison ::= term (('>' | '>=' | '<' | '<=') term)*
     fn parse_comparison(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_term()?;
         while self.current_token == Token::GreaterThan
@@ -479,6 +493,7 @@ impl<'a> Parser<'a> {
         Ok(left)
     }
 
+    // term ::= factor (('+' | '-') factor)*
     fn parse_term(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_factor()?;
         while self.current_token == Token::Plus || self.current_token == Token::Minus {
@@ -494,6 +509,7 @@ impl<'a> Parser<'a> {
         Ok(left)
     }
 
+    // factor ::= unary (('*' | '/' | '%') unary)*
     fn parse_factor(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_unary()?;
         while self.current_token == Token::Asterisk || self.current_token == Token::Slash || self.current_token == Token::Percent {
@@ -510,6 +526,7 @@ impl<'a> Parser<'a> {
         Ok(left)
     }
 
+    // unary ::= ('-' | '!') unary | primary
     fn parse_unary(&mut self) -> Result<Expression, String> {
         if self.current_token == Token::Minus || self.current_token == Token::Bang {
             let op = match self.current_token {
@@ -525,6 +542,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // primary ::= integer | float | '(' expression ')' | if_expression | identifier
     fn parse_primary(&mut self) -> Result<Expression, String> {
         match self.current_token.clone() {
             Token::Integer(n) => {
@@ -550,6 +568,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // if_expression ::= 'if' expression block ('else' block)?
     fn parse_if_expression(&mut self) -> Result<Expression, String> {
         self.expect_token(Token::If)?;
         let condition = self.parse_expression()?;
@@ -568,6 +587,7 @@ impl<'a> Parser<'a> {
         })))
     }
 
+    // block ::= '{' statement* expression? '}'
     fn parse_block(&mut self) -> Result<Block, String> {
         self.expect_token(Token::LBrace)?;
         let mut statements = Vec::new();

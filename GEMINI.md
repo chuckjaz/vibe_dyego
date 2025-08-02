@@ -4,13 +4,13 @@ You're a programming language designer. I'm developing a new language, called Dy
 
 Here are the established syntax and semantic rules:
 
-1. Variable Declarations
+1.  Variable Declarations
 
     `val name = value`: Declares name as a variable holding a deeply immutable copy of value. You can't reassign name, and its held data (even complex types like arrays or custom value types) can't be internally modified.
 
     `var name = value`: Declares name as a variable holding an independent, mutable copy of value. You can reassign name. If value is a complex type, its internal state can be modified, but only name's specific copy will be affected.
 
-2. Composite Value Types
+2.  Composite Value Types
 
     Declaration: `value TypeName(valField: Type, var varField: Type) { ... }`
 
@@ -20,7 +20,7 @@ Here are the established syntax and semantic rules:
 
     `var fieldName: Type` (inside a value type): Declares a mutable field. It's settable during initialization and can be reassigned/modified later by mutating methods, provided the value instance it belongs to is itself a var variable.
 
-3. Arrays
+3.  Arrays
 
     Syntax: Array literals `[element1, element2, ...]` create a `Type[]` (e.g., `i32[]`).
 
@@ -30,7 +30,7 @@ Here are the established syntax and semantic rules:
 
     `var myArr = [1, 2]` creates an independent, mutable array copy.
 
-4. Functions
+4.  Functions
 
     Syntax: `fun functionName(parameter1: Type1, parameter2: Type2): ReturnType { ... }`
 
@@ -40,7 +40,7 @@ Here are the established syntax and semantic rules:
 
     The value of the last expression in the function is the value returned by the function.
 
-5. Methods on value Types
+5.  Methods on value Types
 
     Non-Mutating Methods: `fun methodName() { ... }`
 
@@ -58,7 +58,7 @@ Here are the established syntax and semantic rules:
 
     Initialization Context: Inside a value type's initializer, this is implicitly var to allow for the setup of its fields.
 
-6. Expression Syntax
+6.  Expression Syntax
 
     Operators: The language supports operators mirroring Kotlin's, with standard precedence rules.
 
@@ -68,17 +68,17 @@ Here are the established syntax and semantic rules:
 
     Assignment Expression Behavior: Uniquely, an assignment expression evaluates to the previous value of the variable on the left-hand side.
 
-7. Lambda Syntax
+7.  Lambda Syntax
 
     Basic Lambda: `{ param1: Type1 -> expression_or_block }`
 
     Trailing Lambda: A lambda argument can be moved outside the function call parentheses if it's the last argument.
 
-8. Named Arguments
+8.  Named Arguments
 
     You can name arguments in function calls using parameterName = argumentValue. Once a named argument is used, all subsequent arguments must also be named.
 
-9. Output Model
+9.  Output Model
 
     Target: Exclusively WebAssembly (WASM).
 
@@ -169,20 +169,20 @@ Help implement this language
 
 The implementation language for this project will primarily be Rust.
 
-1. Do not make primitive types reserved words. They should be, instead, should be symbols that are resolved by an implied prefix module that is implicitly imported and resolved during type checking.
-2. Do not use temporal terms in the source code, such as "new" or "old", as they can become outdated. Refer to items by their specific names or properties instead.
+1.  Do not make primitive types reserved words. They should be, instead, should be symbols that are resolved by an implied prefix module that is implicitly imported and resolved during type checking.
+2.  Do not use temporal terms in the source code, such as "new" or "old", as they can become outdated. Refer to items by their specific names or properties instead.
 
 ## Feedback loop
 
-1. Since Gemini would be invoked multiple times, make sure to understand the context in `GEMINI.md`. For instance, if it tells you to 'add function a,b' and you see functions a,b,c, **do not** delete `c`. Most likely there's an undocumented reason why this was done.
+1.  Since Gemini would be invoked multiple times, make sure to understand the context in `GEMINI.md`. For instance, if it tells you to 'add function a,b' and you see functions a,b,c, **do not** delete `c`. Most likely there's an undocumented reason why this was done.
 
-2. Ensure there is an `AI_REASONING.md` to make sure the future you (AI) can read and stay up-to-date. When loading make sure to load/read both `GEMINI.md` and `AI_REASONING.md`. Keep in mind the difference:
-    * `GEMINI.md` instructs you (AI)
-    * `AI_REASONING.md` for you to dump your thoughts across installations. Say you're in the middle of something, or you took a decision about something, dump it there.
-    * a `README.md` for any other user to immediately understand:
-        * How to use the dyego
-        * How to install dyego
-        * What it does
-        * How to deploy
-    * Keep `README.md` current with the latest features and installation instructions.
-
+2.  Ensure there is an `AI_REASONING.md` to make sure the future you (AI) can read and stay up-to-date. When loading make sure to load/read both `GEMINI.md` and `AI_REASONING.md`. Keep in mind the difference:
+    *   `GEMINI.md` instructs you (AI)
+    *   `AI_REASONING.md` for you to dump your thoughts across installations. Say you're in the middle of a something, or you took a decision about something, dump it there.
+    *   a `README.md` for any other user to immediately understand:
+        *   How to use the dyego
+        *   How to install dyego
+        *   What it does
+        *   How to deploy
+    *   Keep `README.md` current with the latest features and installation instructions.
+    *   The `Syntax` section of `README.md` must be kept in sync with `src/parser.rs`.

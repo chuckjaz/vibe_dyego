@@ -10,23 +10,37 @@ Dyego is a new programming language centered around mutable value semantics.
 
 (Instructions to be added)
 
-### Value Type Declaration
+## Syntax
 
-Value types can be declared using the `value` keyword. They can contain both `val` (immutable) and `var` (mutable) fields.
+This section provides a summary of the Dyego language syntax.
 
-```dyego
-value MyValueType(val immutableField: i32, var mutableField: String) {
-    // Methods and other logic can go here
-}
-```
+### Statements
 
-### Expression Syntax
+-   **Variable Declaration**:
+    -   `val <name> = <expression>`: Declares an immutable variable.
+    -   `var <name> = <expression>`: Declares a mutable variable.
+-   **Function Declaration**:
+    -   `fun <name>(<params>)[: <return_type>] { ... }`: Declares a function.
+-   **Value Type Declaration**:
+    -   `value <name>(<fields>) { ... }`: Declares a new value type.
 
-Dyego supports various expressions, including arithmetic operations, comparisons, logical operations, and more.
+### Expressions
 
-```dyego
-val sum = 10 + 5 * 2
-var diff = 20 - (7 / 3)
-val is_positive = -5 < 0
-val result = (true && false) || true
-```
+Dyego is an expression-based language. The following constructs are expressions:
+
+-   **Literals**: `123`, `123.45`
+-   **Identifiers**: `my_variable`
+-   **Binary Operations**: `a + b`, `a * b`, `a == b`, `a && b`
+-   **Unary Operations**: `-a`, `!a`
+-   **Grouped Expressions**: `(a + b)`
+-   **If-Else**: `if <condition> { <then_branch> } else { <else_branch> }`
+-   **Blocks**: `{ <statement>* <expression>? }`
+
+### Types
+
+-   **Simple Types**: `i32`, `f64`, or any user-defined type.
+
+### Parameters and Fields
+
+-   **Function Parameters**: `<name>: <type>`
+-   **Value Fields**: `(val | var) <name>: <type>`
