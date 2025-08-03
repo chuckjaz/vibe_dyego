@@ -28,7 +28,7 @@ Here are the established syntax and semantic rules:
 
     The `object` declaration has the same syntax as `value` except using the `object` keyword.
 
-    The `object` keyword marks a new reference value type whose instances follow value semantics. The primary difference from a `value` type and `object` type is the value is imbedded in its storage context and an object is a reference to a heap location for a value. In Rust terms, `value` is a `struct`,  `object` is a `Box<T>` for the value type implied by its fields and methods. A `value` type can be converted into an `object` by prefixing it with `object` such as `val p: object Point = [x: 10, y: 20]`.
+    The `object` keyword marks a new reference value type whose instances follow value semantics. The primary difference from a `value` type and `object` type is the value is embedded in its storage context and an object is a reference to a heap location for a value. In Rust terms, `value` is a `struct`,  `object` is a `Box<T>` for the value type implied by its fields and methods. A `value` type can be converted into an `object` by prefixing it with `object` such as `val p: object Point = [x: 10, y: 20]`.
 
 4.  **Tuple types**
 
@@ -36,7 +36,9 @@ Here are the established syntax and semantic rules:
 
     Expression: `(expr, expr, expr)`
 
-    Type is a value type with anonymous fields that can only be access individually through destructuring. For example, `val (a, b) = (1, 2)` creates a tuple `(1, 2)` and then simultaneously assigns the value `1` to `a` and `2` to `b`. The `_` reserved name can be used to ignore a value such as `val t = (1, 2, 3); val (_, b _) = t` will assign `2` to `b` while ignoring `1` and `3`.
+    A tuple is a value type with anonymous fields that can only be accessed individually through destructuring. For example, `val (a, b) = (1, 2)` creates a tuple `(1, 2)` and then simultaneously assigns the value `1` to `a` and `2` to `b`. The `_` reserved name can be used to ignore a value such as `val t = (1, 2, 3); val (_, b _) = t` will assign `2` to `b` while ignoring `1` and `3`.
+
+    A tuple must contain either nothing (e.g., `()`), or must contain a `,` between expressions. For example, `(1)` is a parenthesised expression but `(1, )` is a single field tuple. A tuple can have a trailing `,` followed by a `)` which is not counted as introducing a field.
 
 5.  **Arrays**
 
@@ -58,7 +60,7 @@ Here are the established syntax and semantic rules:
 
     The value of the last expression in the function is the value returned by the function.
 
-7.  **Methods on value Types**
+7.  **Methods on Value Types**
 
     Non-Mutating Methods: `fun methodName() { ... }`
 
@@ -104,7 +106,7 @@ Here are the established syntax and semantic rules:
 
 12. **Type System: Generics & Type Inferencing**
 
-    Generic Types: `value Box<T>(...)`,` fun <T> identity(value: T): T`, and `Type[]` are all supported.
+    Generic Types: `value Box<T>(...)`, `fun <T> identity(value: T): T`, and `Type[]` are all supported.
 
     Type Inferencing: Comprehensive type inference is performed.
 
@@ -120,7 +122,7 @@ Here are the established syntax and semantic rules:
 
     Overflow: Integer operations wrap around.
 
-    The primitive types are not reserved words. The are implicitly imported types from the Dyego prefix module.
+    The primitive types are not reserved words. They are implicitly imported types from the Dyego prefix module.
     The prefix module also includes `Int` which is an alias for `I32` and `Float` which is an alias for `F32`
     and `Double` which is an alias for `F64`.
 
@@ -178,7 +180,7 @@ Here are the established syntax and semantic rules:
 
     Trait Imports: Using the `trait` keyword in a path brings all trait implementations from that module into the current scope, making extension methods available (e.g., `import my_lib.extensions.trait`).
 
-23. By convention, source files for dyego end in `.dg`.
+23. By convention, source files for Dyego end in `.dg`.
 
 
 Help implement this language
@@ -189,7 +191,7 @@ Help implement this language
 
 The implementation language for this project will primarily be Rust.
 
-1.  Do not make primitive types reserved words. They should be, instead, should be symbols that are resolved by an implied prefix module that is implicitly imported and resolved during type checking.
+1.  Do not make primitive types reserved words. Instead, they should be symbols that are resolved by an implied prefix module that is implicitly imported and resolved during type checking.
 2.  Do not use temporal terms in the source code, such as "new" or "old", as they can become outdated. Refer to items by their specific names or properties instead.
 
 ## Feedback loop
@@ -199,10 +201,10 @@ The implementation language for this project will primarily be Rust.
 2.  Ensure there is an `AI_REASONING.md` to make sure the future you (AI) can read and stay up-to-date. When loading make sure to load/read both `GEMINI.md` and `AI_REASONING.md`. Keep in mind the difference:
     *   `GEMINI.md` instructs you (AI)
     *   Fix any formatting, grammar or outline number inconsistencies you find in any `.md` file including this one.
-    *   `AI_REASONING.md` for you to dump your thoughts across installations. Say you're in the middle of a something, or you took a decision about something, dump it there.
-    *   a `README.md` for any other user to immediately understand:
-        *   How to use the dyego
-        *   How to install dyego
+    *   `AI_REASONING.md` for you to dump your thoughts across installations. Say you're in the middle of something, or you took a decision about something, dump it there.
+    *   A `README.md` for any other user to immediately understand:
+        *   How to use Dyego
+        *   How to install Dyego
         *   What it does
         *   How to deploy
     *   Keep `README.md` current with the latest features and installation instructions.
