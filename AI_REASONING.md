@@ -1,38 +1,32 @@
 # AI Reasoning
 
-## 2025-08-02
+## August 2, 2025
 
-I was asked to add BNF comments to the parser methods in `src/parser.rs`.
+### Goal: Implement the `when` expression
 
-I have analyzed the file and added BNF comments to the following methods:
-- `parse_statement`
-- `parse_expression`
-- `parse_logical_or`
-- `parse_logical_and`
-- `parse_equality`
-- `parse_comparison`
-- `parse_term`
-- `parse_factor`
-- `parse_unary`
-- `parse_primary`
-- `parse_if_expression`
-- `parse_block`
-- `parse_variable_statement`
-- `parse_function_statement`
-- `parse_value_type_declaration`
-- `parse_function_parameters`
-- `parse_parameter`
-- `parse_value_field`
-- `parse_type`
+I was tasked with implementing the `when` expression in the Dyego language.
 
-I also added a comment for the `statement` rule, which is not a method but a good entry point to understand the grammar.
+### Plan
 
-I was also asked to create a section in the `README.md` file that summarizes the syntax of Dyego and to make a note in the `GEMINI.md` file that is now required to keep these in sync.
+1.  **Understand the existing code:** I started by reviewing `src/parser.rs`, `src/ast.rs`, and `src/main.rs` to understand the current state of the parser and AST.
+2.  **Modify the AST:** The `when` expression AST nodes were already present in `src/ast.rs`, so no changes were needed there.
+3.  **Lexer changes:**
+    *   Added a `When` token to the `Token` enum in `src/parser.rs`.
+    *   Added a `RArrow` token for `=>`.
+    *   Updated the `read_identifier` function to recognize the `when` keyword.
+    *   Updated the `next_token` function to recognize `=>`.
+4.  **Parser changes:**
+    *   Created a `parse_when_expression` function to parse the `when` expression.
+    *   Created a `parse_when_branch` function to parse the branches of the `when` expression.
+    *   Updated the `parse_primary` function to call `parse_when_expression` when a `When` token is encountered.
+5.  **Testing:** Added a test case for the `when` expression to `src/parser.rs` to ensure the implementation is correct.
+6.  **Documentation:** Updated `README.md` to include the syntax for the `when` expression.
+7.  **Commit:** Committed the changes with a descriptive message.
 
-I have updated the `README.md` with a new `Syntax` section and added the synchronization note to `GEMINI.md`.
+### Challenges
 
-I was asked to make the fields section of a `value` type declaration optional if there are no fields.
+I encountered some difficulty with the `replace` tool, which failed multiple times due to incorrect `old_string` values. I switched to reading the file, modifying the content in memory, and then using `write_file` to overwrite the original file. This approach was successful.
 
-I have updated the `parse_value_type_declaration` function in `src/parser.rs` to allow for optional parentheses around the fields. I also updated the BNF comment and added tests to verify the new syntax.
+### Outcome
 
-I was asked to add a rule to `GEMINI.md` that all tests must pass before committing any changes. I have added this rule to the `Feedback loop` section.
+The `when` expression was successfully implemented, tested, and documented. The `README.md` was updated to reflect the changes. All tests passed, and the code was committed to the repository.
