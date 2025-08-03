@@ -15,6 +15,12 @@ pub struct SimpleType {
 #[allow(dead_code)]
 pub enum BaseType {
     User(String),
+    Tuple(TupleType),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TupleType {
+    pub types: Vec<Type>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -82,6 +88,7 @@ pub struct Block {
 pub struct VariableStatement {
     pub mutable: bool,
     pub name: String,
+    pub type_annotation: Option<Type>,
     pub value: Expression,
 }
 
@@ -100,6 +107,12 @@ pub enum Expression {
     When(Box<WhenExpression>),
     Identifier(String),
     GroupedExpression(Box<Expression>),
+    Tuple(Tuple),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Tuple {
+    pub elements: Vec<Expression>,
 }
 
 #[derive(Debug, PartialEq)]

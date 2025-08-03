@@ -1,7 +1,7 @@
 use crate::ast::{
     BaseType, BinaryOperator, Block, Expression, FunctionDefinition, IfElse, Literal, Mutability,
-    Parameter, SimpleType, Statement, Type, UnaryOperator, ValueField, ValueTypeDeclaration,
-    VariableStatement, WhenBranch, WhenExpression,
+    Parameter, SimpleType, Statement, Tuple, TupleType, Type, UnaryOperator, ValueField,
+    ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -10,6 +10,7 @@ pub enum Token {
     Identifier(String),
     Integer(u64),
     Float(f64),
+    String(String),
 
     // Operators
     AmpersandAmpersand,
@@ -149,6 +150,9 @@ impl<'a> Lexer<'a> {
             b'}' => Token::RBrace,
             b':' => Token::Colon,
             b',' => Token::Comma,
+            b'"' => {
+                return self.read_string();
+            }
             b'a'..=b'z' | b'A'..=b'Z' | b'_' => {
                 return self.read_identifier();
             }
@@ -160,6 +164,20 @@ impl<'a> Lexer<'a> {
         };
         self.read_char();
         tok
+    }
+
+    fn read_string(&mut self) -> Token {
+        let start = self.position + 1;
+        self.read_char();
+        while self.ch != b'"' && self.ch != 0 {
+            self.read_char();
+        }
+        if self.ch == 0 {
+            return Token::Illegal;
+        }
+        let end = self.position;
+        self.read_char();
+        Token::String(self.input[start..end].to_string())
     }
 
     fn read_number(&mut self) -> Token {
@@ -411,13 +429,16 @@ impl<'a> Parser<'a> {
         })
     }
 
-    // type ::= identifier
+    // type ::= identifier | tuple_type
     fn parse_type(&mut self) -> Result<Type, String> {
         let base_type = match self.current_token.clone() {
-            Token::Identifier(name) => BaseType::User(name),
+            Token::Identifier(name) => {
+                self.next_token(); // consume type name
+                BaseType::User(name)
+            }
+            Token::LParen => return self.parse_tuple_type(),
             _ => return Err(format!("Expected type name, got {:?}", self.current_token)),
         };
-        self.next_token(); // consume type name
 
         Ok(Type::Simple(SimpleType {
             base: base_type,
@@ -425,7 +446,28 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    // variable_statement ::= ('val' | 'var') identifier '=' expression
+    // tuple_type ::= '(' (type (',' type)*)? ','? ')'
+    fn parse_tuple_type(&mut self) -> Result<Type, String> {
+        self.expect_token(Token::LParen)?;
+        let mut types = Vec::new();
+        if self.current_token != Token::RParen {
+            types.push(self.parse_type()?);
+            while self.current_token == Token::Comma {
+                self.next_token();
+                if self.current_token == Token::RParen {
+                    break;
+                }
+                types.push(self.parse_type()?);
+            }
+        }
+        self.expect_token(Token::RParen)?;
+        Ok(Type::Simple(SimpleType {
+            base: BaseType::Tuple(TupleType { types }),
+            specifiers: vec![],
+        }))
+    }
+
+    // variable_statement ::= ('val' | 'var') identifier (':' type)? '=' expression
     fn parse_variable_statement(&mut self) -> Result<Statement, String> {
         let mutable = self.current_token == Token::Var;
         self.next_token(); // consume 'val' or 'var'
@@ -436,6 +478,13 @@ impl<'a> Parser<'a> {
         };
         self.next_token(); // consume identifier
 
+        let type_annotation = if self.current_token == Token::Colon {
+            self.next_token(); // consume ':'
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
         self.expect_token(Token::Equal)?;
 
         let value = self.parse_expression()?;
@@ -443,6 +492,7 @@ impl<'a> Parser<'a> {
         Ok(Statement::Variable(VariableStatement {
             mutable,
             name,
+            type_annotation,
             value,
         }))
     }
@@ -583,12 +633,11 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 Ok(Expression::Literal(Literal::Float(n)))
             }
-            Token::LParen => {
+            Token::String(s) => {
                 self.next_token();
-                let expr = self.parse_expression()?;
-                self.expect_token(Token::RParen)?;
-                Ok(Expression::GroupedExpression(Box::new(expr)))
+                Ok(Expression::Literal(Literal::String(s)))
             }
+            Token::LParen => self.parse_paren_expression(),
             Token::If => self.parse_if_expression(),
             Token::When => self.parse_when_expression(),
             Token::Identifier(name) => {
@@ -596,6 +645,33 @@ impl<'a> Parser<'a> {
                 Ok(Expression::Identifier(name))
             }
             _ => Err(format!("Unexpected token: {:?}", self.current_token)),
+        }
+    }
+
+    fn parse_paren_expression(&mut self) -> Result<Expression, String> {
+        self.expect_token(Token::LParen)?;
+        // Empty tuple
+        if self.current_token == Token::RParen {
+            self.next_token();
+            return Ok(Expression::Tuple(Tuple { elements: vec![] }));
+        }
+        let expr = self.parse_expression()?;
+        if self.current_token == Token::Comma {
+            self.next_token();
+            let mut elements = vec![expr];
+            while self.current_token != Token::RParen {
+                elements.push(self.parse_expression()?);
+                if self.current_token == Token::Comma {
+                    self.next_token();
+                } else {
+                    break;
+                }
+            }
+            self.expect_token(Token::RParen)?;
+            Ok(Expression::Tuple(Tuple { elements }))
+        } else {
+            self.expect_token(Token::RParen)?;
+            Ok(Expression::GroupedExpression(Box::new(expr)))
         }
     }
 
@@ -681,9 +757,111 @@ mod tests {
     use super::{Lexer, Parser};
     use crate::ast::{
         BaseType, BinaryOperator, Block, Expression, FunctionDefinition, IfElse, Literal,
-        Mutability, Parameter, SimpleType, Statement, Type, UnaryOperator, ValueField,
-        ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression,
+        Mutability, Parameter, SimpleType, Statement, Tuple, TupleType, Type, UnaryOperator,
+        ValueField, ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression,
     };
+
+    #[test]
+    fn test_parse_tuple_expression() {
+        let input = "(1, 2.0, \"three\")";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Tuple(Tuple {
+            elements: vec![
+                Expression::Literal(Literal::Integer(1)),
+                Expression::Literal(Literal::Float(2.0)),
+                Expression::Literal(Literal::String("three".to_string())),
+            ],
+        }));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_empty_tuple_expression() {
+        let input = "()";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Tuple(Tuple { elements: vec![] }));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_single_element_tuple_expression() {
+        let input = "(1,)";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::Tuple(Tuple {
+            elements: vec![Expression::Literal(Literal::Integer(1))],
+        }));
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_variable_with_tuple_type() {
+        let input = "val x: (i32, f64) = (1, 2.0)";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Variable(VariableStatement {
+            mutable: false,
+            name: "x".to_string(),
+            type_annotation: Some(Type::Simple(SimpleType {
+                base: BaseType::Tuple(TupleType {
+                    types: vec![
+                        Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                        Type::Simple(SimpleType {
+                            base: BaseType::User("f64".to_string()),
+                            specifiers: vec![],
+                        }),
+                    ],
+                }),
+                specifiers: vec![],
+            })),
+            value: Expression::Tuple(Tuple {
+                elements: vec![
+                    Expression::Literal(Literal::Integer(1)),
+                    Expression::Literal(Literal::Float(2.0)),
+                ],
+            }),
+        });
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_function_with_tuple_type_parameter() {
+        let input = "fun a(x: (i32, f64)) {}";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Function(FunctionDefinition {
+            name: "a".to_string(),
+            parameters: vec![Parameter {
+                name: "x".to_string(),
+                type_annotation: Type::Simple(SimpleType {
+                    base: BaseType::Tuple(TupleType {
+                        types: vec![
+                            Type::Simple(SimpleType {
+                                base: BaseType::User("i32".to_string()),
+                                specifiers: vec![],
+                            }),
+                            Type::Simple(SimpleType {
+                                base: BaseType::User("f64".to_string()),
+                                specifiers: vec![],
+                            }),
+                        ],
+                    }),
+                    specifiers: vec![],
+                }),
+            }],
+            return_type: None,
+            body: Block {
+                statements: vec![],
+                expression: None,
+            },
+        });
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
 
     #[test]
     fn test_parse_float() {
@@ -834,6 +1012,7 @@ mod tests {
         let expected = Statement::Variable(VariableStatement {
             mutable: false,
             name: "x".to_string(),
+            type_annotation: None,
             value: Expression::Literal(Literal::Integer(10)),
         });
         assert_eq!(parser.parse_statement(), Ok(expected));
