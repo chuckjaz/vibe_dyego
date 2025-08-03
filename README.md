@@ -34,6 +34,7 @@ Dyego is an expression-based language. The following constructs are expressions:
 -   **Unary Operations**: `-a`, `!a`
 -   **Grouped Expressions**: `(a + b)`
 -   **If-Else**: `if <condition> { <then_branch> } else { <else_branch> }`
+-   **When**: `when <expression> { <condition> => <result>, ... }`
 -   **Blocks**: `{ <statement>* <expression>? }`
 
 ### Types

@@ -1,4 +1,8 @@
-use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType, ValueTypeDeclaration, ValueField, Mutability};
+use crate::ast::{
+    BaseType, BinaryOperator, Block, Expression, FunctionDefinition, IfElse, Literal, Mutability,
+    Parameter, SimpleType, Statement, Type, UnaryOperator, ValueField, ValueTypeDeclaration,
+    VariableStatement, WhenBranch, WhenExpression,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -26,6 +30,7 @@ pub enum Token {
     Percent,
     PipePipe,
     Plus,
+    RArrow,
     RBrace,
     RParen,
     Slash,
@@ -39,6 +44,7 @@ pub enum Token {
     Val,
     Value,
     Var,
+    When,
 }
 
 pub struct Lexer<'a> {
@@ -103,7 +109,10 @@ impl<'a> Lexer<'a> {
                 }
             }
             b'=' => {
-                if self.peek_char() == b'=' {
+                if self.peek_char() == b'>' {
+                    self.read_char();
+                    Token::RArrow
+                } else if self.peek_char() == b'=' {
                     self.read_char();
                     Token::EqualEqual
                 } else {
@@ -194,6 +203,7 @@ impl<'a> Lexer<'a> {
             "var" => Token::Var,
             "fun" => Token::Fun,
             "value" => Token::Value,
+            "when" => Token::When,
             _ => Token::Identifier(ident.to_string()),
         }
     }
@@ -239,20 +249,18 @@ impl<'a> Parser<'a> {
         } else {
             Err(format!(
                 "Expected token {:?}, got {:?}",
-                expected,
-                self.current_token
+                expected, self.current_token
             ))
         }
-
     }
 
     fn expect_token(&mut self, expected: Token) -> Result<(), String> {
-        match self.require_token(expected) {
+        match self.require_token(expected.clone()) {
             Ok(()) => {
                 self.next_token();
                 Ok(())
             }
-            Err(message) => Err(message)
+            Err(message) => Err(message),
         }
     }
 
@@ -262,7 +270,12 @@ impl<'a> Parser<'a> {
 
         let name = match self.current_token.clone() {
             Token::Identifier(name) => name,
-            _ => return Err(format!("Expected function name, got {:?}", self.current_token)),
+            _ => {
+                return Err(format!(
+                    "Expected function name, got {:?}",
+                    self.current_token
+                ))
+            }
         };
         self.next_token(); // consume function name
 
@@ -295,7 +308,12 @@ impl<'a> Parser<'a> {
 
         let name = match self.current_token.clone() {
             Token::Identifier(name) => name,
-            _ => return Err(format!("Expected value type name, got {:?}", self.current_token)),
+            _ => {
+                return Err(format!(
+                    "Expected value type name, got {:?}",
+                    self.current_token
+                ))
+            }
         };
         self.next_token(); // consume value type name
 
@@ -356,7 +374,10 @@ impl<'a> Parser<'a> {
 
         let type_annotation = self.parse_type()?;
 
-        Ok(Parameter { name, type_annotation })
+        Ok(Parameter {
+            name,
+            type_annotation,
+        })
     }
 
     // value_field ::= ('val' | 'var') identifier ':' type
@@ -364,7 +385,12 @@ impl<'a> Parser<'a> {
         let mutability = match self.current_token {
             Token::Val => Mutability::Val,
             Token::Var => Mutability::Var,
-            _ => return Err(format!("Expected 'val' or 'var' for value field, got {:?}", self.current_token)),
+            _ => {
+                return Err(format!(
+                    "Expected 'val' or 'var' for value field, got {:?}",
+                    self.current_token
+                ))
+            }
         };
         self.next_token(); // consume 'val' or 'var'
 
@@ -513,7 +539,10 @@ impl<'a> Parser<'a> {
     // factor ::= unary (('*' | '/' | '%') unary)*
     fn parse_factor(&mut self) -> Result<Expression, String> {
         let mut left = self.parse_unary()?;
-        while self.current_token == Token::Asterisk || self.current_token == Token::Slash || self.current_token == Token::Percent {
+        while self.current_token == Token::Asterisk
+            || self.current_token == Token::Slash
+            || self.current_token == Token::Percent
+        {
             let op = match self.current_token {
                 Token::Asterisk => BinaryOperator::Multiply,
                 Token::Slash => BinaryOperator::Divide,
@@ -561,6 +590,7 @@ impl<'a> Parser<'a> {
                 Ok(Expression::GroupedExpression(Box::new(expr)))
             }
             Token::If => self.parse_if_expression(),
+            Token::When => self.parse_when_expression(),
             Token::Identifier(name) => {
                 self.next_token();
                 Ok(Expression::Identifier(name))
@@ -588,6 +618,40 @@ impl<'a> Parser<'a> {
         })))
     }
 
+    // when_expression ::= 'when' expression '{' (when_branch (',' when_branch)*)? '}'
+    fn parse_when_expression(&mut self) -> Result<Expression, String> {
+        self.expect_token(Token::When)?;
+        let expression = self.parse_expression()?;
+        self.expect_token(Token::LBrace)?;
+
+        let mut branches = Vec::new();
+        if self.current_token != Token::RBrace {
+            branches.push(self.parse_when_branch()?);
+            while self.current_token == Token::Comma {
+                self.next_token(); // consume ','
+                if self.current_token == Token::RBrace {
+                    break;
+                }
+                branches.push(self.parse_when_branch()?);
+            }
+        }
+
+        self.expect_token(Token::RBrace)?;
+
+        Ok(Expression::When(Box::new(WhenExpression {
+            expression,
+            branches,
+        })))
+    }
+
+    // when_branch ::= expression '=>' expression
+    fn parse_when_branch(&mut self) -> Result<WhenBranch, String> {
+        let condition = self.parse_expression()?;
+        self.expect_token(Token::RArrow)?;
+        let result = self.parse_expression()?;
+        Ok(WhenBranch { condition, result })
+    }
+
     // block ::= '{' statement* expression? '}'
     fn parse_block(&mut self) -> Result<Block, String> {
         self.expect_token(Token::LBrace)?;
@@ -605,14 +669,21 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(Block { statements, expression })
+        Ok(Block {
+            statements,
+            expression,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Lexer, Parser};
-    use crate::ast::{BinaryOperator, Block, Expression, IfElse, Literal, Statement, UnaryOperator, VariableStatement, FunctionDefinition, Parameter, Type, SimpleType, BaseType, ValueTypeDeclaration, ValueField, Mutability};
+    use crate::ast::{
+        BaseType, BinaryOperator, Block, Expression, FunctionDefinition, IfElse, Literal,
+        Mutability, Parameter, SimpleType, Statement, Type, UnaryOperator, ValueField,
+        ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression,
+    };
 
     #[test]
     fn test_parse_float() {
@@ -865,6 +936,27 @@ mod tests {
                 expression: Some(Box::new(Expression::Literal(Literal::Integer(1)))),
             },
         });
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_when_expression() {
+        let input = "when x { 1 => 2, 3 => 4 }";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement::Expression(Expression::When(Box::new(WhenExpression {
+            expression: Expression::Identifier("x".to_string()),
+            branches: vec![
+                WhenBranch {
+                    condition: Expression::Literal(Literal::Integer(1)),
+                    result: Expression::Literal(Literal::Integer(2)),
+                },
+                WhenBranch {
+                    condition: Expression::Literal(Literal::Integer(3)),
+                    result: Expression::Literal(Literal::Integer(4)),
+                },
+            ],
+        })));
         assert_eq!(parser.parse_statement(), Ok(expected));
     }
 }
