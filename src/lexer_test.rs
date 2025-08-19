@@ -2,7 +2,7 @@ use super::{Lexer, TokenKind};
 
 #[test]
 fn test_next_token() {
-    let input = "=+(){},[]";
+    let input = "=+(){},[].";
     let mut lexer = Lexer::new(input);
 
     let tokens = vec![
@@ -15,6 +15,7 @@ fn test_next_token() {
         TokenKind::Comma,
         TokenKind::LBracket,
         TokenKind::RBracket,
+        TokenKind::Dot,
         TokenKind::Eof,
     ];
 
@@ -58,7 +59,7 @@ fn test_identifier() {
 
 #[test]
 fn test_keywords() {
-    let input = "fun if else val var value when for while in";
+    let input = "fun if else val var value when for while in mod";
     let mut lexer = Lexer::new(input);
 
     let keywords = vec![
@@ -72,6 +73,7 @@ fn test_keywords() {
         TokenKind::For,
         TokenKind::While,
         TokenKind::In,
+        TokenKind::Mod,
     ];
 
     for keyword in keywords {
