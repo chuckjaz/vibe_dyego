@@ -39,6 +39,7 @@ fn test_parse_variable_with_object_type() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {
@@ -76,6 +77,7 @@ fn test_parse_variable_with_value_type() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {
@@ -113,6 +115,7 @@ fn test_parse_object_type_no_fields() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {
@@ -144,6 +147,7 @@ fn test_parse_value_type_no_fields() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {
@@ -175,6 +179,7 @@ fn test_parse_object_type_empty_fields() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {
@@ -206,6 +211,7 @@ fn test_parse_value_type_empty_fields() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {
@@ -237,6 +243,7 @@ fn test_parse_object_type_declaration_with_fields() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::ObjectType(ObjectTypeDeclaration {
+            public: false,
             name: "Point".to_string(),
             fields: vec![
                 ValueField {
@@ -372,6 +379,7 @@ fn test_parse_variable_with_tuple_type() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {
@@ -414,6 +422,7 @@ fn test_parse_function_with_tuple_type_parameter() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Function(FunctionDefinition {
+            public: false,
             name: "a".to_string(),
             parameters: vec![Parameter {
                 name: "x".to_string(),
@@ -744,6 +753,7 @@ fn test_parse_variable_statement() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: None,
@@ -764,6 +774,7 @@ fn test_parse_function_declaration() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Function(FunctionDefinition {
+            public: false,
             name: "my_func".to_string(),
             parameters: vec![
                 Parameter {
@@ -802,6 +813,7 @@ fn test_parse_value_type_declaration_with_fields() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::ValueType(ValueTypeDeclaration {
+            public: false,
             name: "Point".to_string(),
             fields: vec![
                 ValueField {
@@ -839,6 +851,7 @@ fn test_parse_value_type_declaration_no_fields() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::ValueType(ValueTypeDeclaration {
+            public: false,
             name: "Point".to_string(),
             fields: vec![],
             body: Block {
@@ -861,6 +874,7 @@ fn test_parse_value_type_declaration_empty_fields() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::ValueType(ValueTypeDeclaration {
+            public: false,
             name: "Point".to_string(),
             fields: vec![],
             body: Block {

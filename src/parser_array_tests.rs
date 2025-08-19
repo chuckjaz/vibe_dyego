@@ -14,6 +14,7 @@ fn test_parse_array_type() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {
@@ -62,6 +63,7 @@ fn test_parse_multidimensional_array_type() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Variable(VariableStatement {
+            public: false,
             mutable: false,
             name: "x".to_string(),
             type_annotation: Some(Type::Simple(SimpleType {

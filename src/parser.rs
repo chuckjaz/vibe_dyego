@@ -37,15 +37,30 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_statement(&mut self) -> Result<Statement, Error> {
+        let is_public = if self.current_token.kind == TokenKind::Public {
+            self.next_token();
+            true
+        } else {
+            false
+        };
+
         match self.current_token.kind {
-            TokenKind::Val | TokenKind::Var => self.parse_variable_statement(),
-            TokenKind::Fun => self.parse_function_statement(),
-            TokenKind::Value => self.parse_value_type_declaration(),
-            TokenKind::Object => self.parse_object_type_declaration(),
+            TokenKind::Val | TokenKind::Var => self.parse_variable_statement(is_public),
+            TokenKind::Fun => self.parse_function_statement(is_public),
+            TokenKind::Value => self.parse_value_type_declaration(is_public),
+            TokenKind::Object => self.parse_object_type_declaration(is_public),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
-            TokenKind::Mod => self.parse_module_statement(),
-            _ => self.parse_expression_statement(),
+            TokenKind::Module => self.parse_module_statement(),
+            _ => {
+                if is_public {
+                    return Err(Error {
+                        message: "Expected a declaration after 'public'".to_string(),
+                        span: self.current_token.span,
+                    });
+                }
+                self.parse_expression_statement()
+            }
         }
     }
 
@@ -67,7 +82,7 @@ impl<'a> Parser<'a> {
     }
 
     // function_statement ::= 'fun' identifier '(' function_parameters ')' (':' type)? block
-    fn parse_function_statement(&mut self) -> Result<Statement, Error> {
+    fn parse_function_statement(&mut self, is_public: bool) -> Result<Statement, Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::Fun)?;
 
@@ -100,6 +115,7 @@ impl<'a> Parser<'a> {
 
         Ok(Statement {
             kind: StatementKind::Function(FunctionDefinition {
+                public: is_public,
                 name,
                 parameters,
                 return_type,
@@ -113,7 +129,7 @@ impl<'a> Parser<'a> {
     }
 
     // object_type_declaration ::= 'object' identifier ('(' (value_field (',' value_field)*)? ')')? block
-    fn parse_object_type_declaration(&mut self) -> Result<Statement, Error> {
+    fn parse_object_type_declaration(&mut self, is_public: bool) -> Result<Statement, Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::Object)?;
 
@@ -152,6 +168,7 @@ impl<'a> Parser<'a> {
 
         Ok(Statement {
             kind: StatementKind::ObjectType(ObjectTypeDeclaration {
+                public: is_public,
                 name,
                 fields,
                 body,
@@ -164,7 +181,7 @@ impl<'a> Parser<'a> {
     }
 
     // value_type_declaration ::= 'value' identifier ('(' (value_field (',' value_field)*)? ')')? block
-    fn parse_value_type_declaration(&mut self) -> Result<Statement, Error> {
+    fn parse_value_type_declaration(&mut self, is_public: bool) -> Result<Statement, Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::Value)?;
 
@@ -200,6 +217,7 @@ impl<'a> Parser<'a> {
 
         Ok(Statement {
             kind: StatementKind::ValueType(ValueTypeDeclaration {
+                public: is_public,
                 name,
                 fields,
                 body,
@@ -442,7 +460,7 @@ impl<'a> Parser<'a> {
     }
 
     // variable_statement ::= ('val' | 'var') identifier (':' type)? '=' expression
-    fn parse_variable_statement(&mut self) -> Result<Statement, Error> {
+    fn parse_variable_statement(&mut self, is_public: bool) -> Result<Statement, Error> {
         let start_span = self.current_token.span;
         let mutable = self.current_token.kind == TokenKind::Var;
         self.next_token(); // consume 'val' or 'var'
@@ -472,6 +490,7 @@ impl<'a> Parser<'a> {
 
         Ok(Statement {
             kind: StatementKind::Variable(VariableStatement {
+                public: is_public,
                 mutable,
                 name,
                 type_annotation,
@@ -715,10 +734,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // module_statement ::= 'mod' identifier block
+    // module_statement ::= 'module' identifier ('publish' '(' (identifier (',' identifier)*)? ')')? block
     fn parse_module_statement(&mut self) -> Result<Statement, Error> {
         let start_span = self.current_token.span;
-        self.expect_token(TokenKind::Mod)?;
+        self.expect_token(TokenKind::Module)?;
 
         let name = match self.current_token.kind.clone() {
             TokenKind::Identifier(name) => name,
@@ -731,13 +750,47 @@ impl<'a> Parser<'a> {
         };
         self.next_token(); // consume module name
 
+        let mut published_names = Vec::new();
+        if self.current_token.kind == TokenKind::Publish {
+            self.next_token(); // consume 'publish'
+            self.expect_token(TokenKind::LParen)?;
+            if self.current_token.kind != TokenKind::RParen {
+                loop {
+                    let name = match self.current_token.kind.clone() {
+                        TokenKind::Identifier(name) => name,
+                        _ => {
+                            return Err(Error {
+                                message: format!(
+                                    "Expected identifier in publish list, got {:?}",
+                                    self.current_token.kind
+                                ),
+                                span: self.current_token.span,
+                            })
+                        }
+                    };
+                    self.next_token();
+                    published_names.push(name);
+                    if self.current_token.kind == TokenKind::Comma {
+                        self.next_token();
+                    } else {
+                        break;
+                    }
+                }
+            }
+            self.expect_token(TokenKind::RParen)?;
+        }
+
         self.require_token(TokenKind::LBrace)?;
 
         let (body, body_span) = self.parse_block()?;
         let end_span = body_span;
 
         Ok(Statement {
-            kind: StatementKind::Module(Module { name, body }),
+            kind: StatementKind::Module(Module {
+                name,
+                body,
+                published_names,
+            }),
             span: Span {
                 start: start_span.start,
                 end: end_span.end,
