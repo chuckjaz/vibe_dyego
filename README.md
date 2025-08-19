@@ -37,11 +37,13 @@ Dyego is an expression-based language. The following constructs are expressions:
 -   **If-Else**: `if <condition> { <then_branch> } else { <else_branch> }`
 -   **When**: `when <expression> { <condition> => <result>, ... }`
 -   **Blocks**: `{ <statement>* <expression>? }`
+-   **Array Literals**: `[<element1>, <element2>, ...]` or `[<value>; <size>]`
 
 ### Types
 
 -   **Simple Types**: `i32`, `f64`, or any user-defined type.
 -   **Tuple Types**: `(<type>, <type>, ...)`
+-   **Array Types**: `T[]` (where `T` is any type)
 
 ### Parameters and Fields
 
