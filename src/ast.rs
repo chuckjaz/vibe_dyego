@@ -49,9 +49,17 @@ pub enum StatementKind {
     Variable(VariableStatement),
     Function(FunctionDefinition),
     ValueType(ValueTypeDeclaration),
+    ObjectType(ObjectTypeDeclaration),
     Expression(Expression),
     WhileLoop(Box<WhileLoop>),
     ForLoop(Box<ForLoop>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ObjectTypeDeclaration {
+    pub name: String,
+    pub fields: Vec<ValueField>,
+    pub body: Block,
 }
 
 #[derive(Debug, PartialEq)]
