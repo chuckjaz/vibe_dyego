@@ -11,6 +11,12 @@ pub struct Span {
     pub end: usize,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Error {
+    pub message: String,
+    pub span: Span,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum TokenKind {
@@ -64,6 +70,7 @@ pub struct Token {
 
 pub struct Lexer<'a> {
     input: &'a str,
+    pub line_starts: Vec<usize>,
     position: usize,
     read_position: usize,
     ch: u8,
@@ -73,10 +80,17 @@ impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
         let mut l = Lexer {
             input,
+            line_starts: vec![0],
             position: 0,
             read_position: 0,
             ch: 0,
         };
+        l.line_starts.extend(
+            input
+                .char_indices()
+                .filter(|&(_, c)| c == '\n')
+                .map(|(i, _)| i + 1),
+        );
         l.read_char();
         l
     }
@@ -289,7 +303,7 @@ impl<'a> Parser<'a> {
         self.current_token = self.lexer.next_token();
     }
 
-    pub fn parse_statement(&mut self) -> Result<Statement, String> {
+    pub fn parse_statement(&mut self) -> Result<Statement, Error> {
         match self.current_token.kind {
             TokenKind::Val | TokenKind::Var => self.parse_variable_statement(),
             TokenKind::Fun => self.parse_function_statement(),
@@ -298,39 +312,35 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn require_token(&mut self, expected: TokenKind) -> Result<(), String> {
+    fn require_token(&mut self, expected: TokenKind) -> Result<(), Error> {
         if self.current_token.kind == expected {
             Ok(())
         } else {
-            Err(format!(
-                "Expected token {:?}, got {:?} at span {:?}",
-                expected, self.current_token.kind, self.current_token.span
-            ))
+            Err(Error {
+                message: format!("Expected token {:?}, got {:?}", expected, self.current_token.kind),
+                span: self.current_token.span,
+            })
         }
     }
 
-    fn expect_token(&mut self, expected: TokenKind) -> Result<(), String> {
-        match self.require_token(expected.clone()) {
-            Ok(()) => {
-                self.next_token();
-                Ok(())
-            }
-            Err(message) => Err(message),
-        }
+    fn expect_token(&mut self, expected: TokenKind) -> Result<(), Error> {
+        self.require_token(expected)?;
+        self.next_token();
+        Ok(())
     }
 
     // function_statement ::= 'fun' identifier '(' function_parameters ')' (':' type)? block
-    fn parse_function_statement(&mut self) -> Result<Statement, String> {
+    fn parse_function_statement(&mut self) -> Result<Statement, Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::Fun)?;
 
         let name = match self.current_token.kind.clone() {
             TokenKind::Identifier(name) => name,
             _ => {
-                return Err(format!(
-                    "Expected function name, got {:?}",
-                    self.current_token.kind
-                ))
+                return Err(Error {
+                    message: format!("Expected function name, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
             }
         };
         self.next_token(); // consume function name
@@ -366,17 +376,17 @@ impl<'a> Parser<'a> {
     }
 
     // value_type_declaration ::= 'value' identifier ('(' (value_field (',' value_field)*)? ')')? block
-    fn parse_value_type_declaration(&mut self) -> Result<Statement, String> {
+    fn parse_value_type_declaration(&mut self) -> Result<Statement, Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::Value)?;
 
         let name = match self.current_token.kind.clone() {
             TokenKind::Identifier(name) => name,
             _ => {
-                return Err(format!(
-                    "Expected value type name, got {:?}",
-                    self.current_token.kind
-                ))
+                return Err(Error {
+                    message: format!("Expected value type name, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
             }
         };
         self.next_token(); // consume value type name
@@ -414,7 +424,7 @@ impl<'a> Parser<'a> {
     }
 
     // function_parameters ::= (parameter (',' parameter)*)?
-    fn parse_function_parameters(&mut self) -> Result<Vec<Parameter>, String> {
+    fn parse_function_parameters(&mut self) -> Result<Vec<Parameter>, Error> {
         let mut params = Vec::new();
         if self.current_token.kind == TokenKind::RParen {
             self.next_token(); // consume ')'
@@ -434,10 +444,15 @@ impl<'a> Parser<'a> {
     }
 
     // parameter ::= identifier ':' type
-    fn parse_parameter(&mut self) -> Result<Parameter, String> {
+    fn parse_parameter(&mut self) -> Result<Parameter, Error> {
         let name = match self.current_token.kind.clone() {
             TokenKind::Identifier(name) => name,
-            _ => return Err(format!("Expected parameter name, got {:?}", self.current_token.kind)),
+            _ => {
+                return Err(Error {
+                    message: format!("Expected parameter name, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
+            }
         };
         self.next_token(); // consume param name
 
@@ -452,22 +467,30 @@ impl<'a> Parser<'a> {
     }
 
     // value_field ::= ('val' | 'var') identifier ':' type
-    fn parse_value_field(&mut self) -> Result<ValueField, String> {
+    fn parse_value_field(&mut self) -> Result<ValueField, Error> {
         let mutability = match self.current_token.kind {
             TokenKind::Val => Mutability::Val,
             TokenKind::Var => Mutability::Var,
             _ => {
-                return Err(format!(
-                    "Expected 'val' or 'var' for value field, got {:?}",
-                    self.current_token.kind
-                ))
+                return Err(Error {
+                    message: format!(
+                        "Expected 'val' or 'var' for value field, got {:?}",
+                        self.current_token.kind
+                    ),
+                    span: self.current_token.span,
+                })
             }
         };
         self.next_token(); // consume 'val' or 'var'
 
         let name = match self.current_token.kind.clone() {
             TokenKind::Identifier(name) => name,
-            _ => return Err(format!("Expected field name, got {:?}", self.current_token.kind)),
+            _ => {
+                return Err(Error {
+                    message: format!("Expected field name, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
+            }
         };
         self.next_token(); // consume field name
 
@@ -483,14 +506,19 @@ impl<'a> Parser<'a> {
     }
 
     // type ::= identifier | tuple_type
-    fn parse_type(&mut self) -> Result<Type, String> {
+    fn parse_type(&mut self) -> Result<Type, Error> {
         let base_type = match self.current_token.kind.clone() {
             TokenKind::Identifier(name) => {
                 self.next_token(); // consume type name
                 BaseType::User(name)
             }
             TokenKind::LParen => return self.parse_tuple_type(),
-            _ => return Err(format!("Expected type name, got {:?}", self.current_token.kind)),
+            _ => {
+                return Err(Error {
+                    message: format!("Expected type name, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
+            }
         };
 
         Ok(Type::Simple(SimpleType {
@@ -500,7 +528,7 @@ impl<'a> Parser<'a> {
     }
 
     // tuple_type ::= '(' (type (',' type)*)? ','? ')'
-    fn parse_tuple_type(&mut self) -> Result<Type, String> {
+    fn parse_tuple_type(&mut self) -> Result<Type, Error> {
         self.expect_token(TokenKind::LParen)?;
         let mut types = Vec::new();
         if self.current_token.kind != TokenKind::RParen {
@@ -521,14 +549,19 @@ impl<'a> Parser<'a> {
     }
 
     // variable_statement ::= ('val' | 'var') identifier (':' type)? '=' expression
-    fn parse_variable_statement(&mut self) -> Result<Statement, String> {
+    fn parse_variable_statement(&mut self) -> Result<Statement, Error> {
         let start_span = self.current_token.span;
         let mutable = self.current_token.kind == TokenKind::Var;
         self.next_token(); // consume 'val' or 'var'
 
         let name = match self.current_token.kind.clone() {
             TokenKind::Identifier(name) => name,
-            _ => return Err(format!("Expected identifier, got {:?}", self.current_token.kind)),
+            _ => {
+                return Err(Error {
+                    message: format!("Expected identifier, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
+            }
         };
         self.next_token(); // consume identifier
 
@@ -559,7 +592,7 @@ impl<'a> Parser<'a> {
     }
 
     // expression_statement ::= expression
-    fn parse_expression_statement(&mut self) -> Result<Statement, String> {
+    fn parse_expression_statement(&mut self) -> Result<Statement, Error> {
         let expr = self.parse_expression()?;
         let span = expr.span;
         Ok(Statement {
@@ -569,12 +602,12 @@ impl<'a> Parser<'a> {
     }
 
     // expression ::= logical_or
-    pub fn parse_expression(&mut self) -> Result<Expression, String> {
+    pub fn parse_expression(&mut self) -> Result<Expression, Error> {
         self.parse_logical_or()
     }
 
     // logical_or ::= logical_and ('||' logical_and)*
-    fn parse_logical_or(&mut self) -> Result<Expression, String> {
+    fn parse_logical_or(&mut self) -> Result<Expression, Error> {
         let mut left = self.parse_logical_and()?;
         while self.current_token.kind == TokenKind::PipePipe {
             let op = BinaryOperator::Or;
@@ -593,7 +626,7 @@ impl<'a> Parser<'a> {
     }
 
     // logical_and ::= equality ('&&' equality)*
-    fn parse_logical_and(&mut self) -> Result<Expression, String> {
+    fn parse_logical_and(&mut self) -> Result<Expression, Error> {
         let mut left = self.parse_equality()?;
         while self.current_token.kind == TokenKind::AmpersandAmpersand {
             let op = BinaryOperator::And;
@@ -612,7 +645,7 @@ impl<'a> Parser<'a> {
     }
 
     // equality ::= comparison (('==' | '!=') comparison)*
-    fn parse_equality(&mut self) -> Result<Expression, String> {
+    fn parse_equality(&mut self) -> Result<Expression, Error> {
         let mut left = self.parse_comparison()?;
         while self.current_token.kind == TokenKind::EqualEqual
             || self.current_token.kind == TokenKind::BangEqual
@@ -637,7 +670,7 @@ impl<'a> Parser<'a> {
     }
 
     // comparison ::= term (('>' | '>=' | '<' | '<=') term)*
-    fn parse_comparison(&mut self) -> Result<Expression, String> {
+    fn parse_comparison(&mut self) -> Result<Expression, Error> {
         let mut left = self.parse_term()?;
         while self.current_token.kind == TokenKind::GreaterThan
             || self.current_token.kind == TokenKind::GreaterThanEqual
@@ -666,7 +699,7 @@ impl<'a> Parser<'a> {
     }
 
     // term ::= factor (('+' | '-') factor)*
-    fn parse_term(&mut self) -> Result<Expression, String> {
+    fn parse_term(&mut self) -> Result<Expression, Error> {
         let mut left = self.parse_factor()?;
         while self.current_token.kind == TokenKind::Plus || self.current_token.kind == TokenKind::Minus
         {
@@ -690,7 +723,7 @@ impl<'a> Parser<'a> {
     }
 
     // factor ::= unary (('*' | '/' | '%') unary)*
-    fn parse_factor(&mut self) -> Result<Expression, String> {
+    fn parse_factor(&mut self) -> Result<Expression, Error> {
         let mut left = self.parse_unary()?;
         while self.current_token.kind == TokenKind::Asterisk
             || self.current_token.kind == TokenKind::Slash
@@ -717,7 +750,7 @@ impl<'a> Parser<'a> {
     }
 
     // unary ::= ('-' | '!') unary | primary
-    fn parse_unary(&mut self) -> Result<Expression, String> {
+    fn parse_unary(&mut self) -> Result<Expression, Error> {
         if self.current_token.kind == TokenKind::Minus || self.current_token.kind == TokenKind::Bang {
             let start_span = self.current_token.span;
             let op = match self.current_token.kind {
@@ -741,7 +774,7 @@ impl<'a> Parser<'a> {
     }
 
     // primary ::= integer | float | '(' expression ')' | if_expression | identifier
-    fn parse_primary(&mut self) -> Result<Expression, String> {
+    fn parse_primary(&mut self) -> Result<Expression, Error> {
         let span = self.current_token.span;
         match self.current_token.kind.clone() {
             TokenKind::Integer(n) => {
@@ -775,11 +808,14 @@ impl<'a> Parser<'a> {
                     span,
                 })
             }
-            _ => Err(format!("Unexpected token: {:?}", self.current_token.kind)),
+            _ => Err(Error {
+                message: format!("Unexpected token: {:?}", self.current_token.kind),
+                span,
+            }),
         }
     }
 
-    fn parse_paren_expression(&mut self) -> Result<Expression, String> {
+    fn parse_paren_expression(&mut self) -> Result<Expression, Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::LParen)?;
         // Empty tuple
@@ -829,7 +865,7 @@ impl<'a> Parser<'a> {
     }
 
     // if_expression ::= 'if' expression block ('else' block)?
-    fn parse_if_expression(&mut self) -> Result<Expression, String> {
+    fn parse_if_expression(&mut self) -> Result<Expression, Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::If)?;
         let condition = self.parse_expression()?;
@@ -857,7 +893,7 @@ impl<'a> Parser<'a> {
     }
 
     // when_expression ::= 'when' expression '{' (when_branch (',' when_branch)*)? '}'
-    fn parse_when_expression(&mut self) -> Result<Expression, String> {
+    fn parse_when_expression(&mut self) -> Result<Expression, Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::When)?;
         let expression = self.parse_expression()?;
@@ -891,7 +927,7 @@ impl<'a> Parser<'a> {
     }
 
     // when_branch ::= expression '=>' expression
-    fn parse_when_branch(&mut self) -> Result<WhenBranch, String> {
+    fn parse_when_branch(&mut self) -> Result<WhenBranch, Error> {
         let condition = self.parse_expression()?;
         self.expect_token(TokenKind::RArrow)?;
         let result = self.parse_expression()?;
@@ -899,7 +935,7 @@ impl<'a> Parser<'a> {
     }
 
     // block ::= '{' statement* expression? '}'
-    fn parse_block(&mut self) -> Result<(Block, Span), String> {
+    fn parse_block(&mut self) -> Result<(Block, Span), Error> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::LBrace)?;
         let mut statements = Vec::new();
@@ -944,6 +980,15 @@ mod tests {
         Mutability, Parameter, SimpleType, Statement, Tuple, TupleType, Type, UnaryOperator,
         ValueField, ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression,
     };
+
+    #[test]
+    fn test_parse_error() {
+        let input = "val x = ";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let error = parser.parse_statement().unwrap_err();
+        assert_eq!(error.message, "Unexpected token: Eof");
+    }
 
     #[test]
     fn test_parse_tuple_expression() {
