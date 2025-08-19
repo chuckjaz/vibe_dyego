@@ -1,8 +1,8 @@
 use crate::ast::{
     BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop, FunctionDefinition,
-    IfElse, Literal, Mutability, Parameter, SimpleType, Statement, StatementKind, Tuple,
-    TupleType, Type, UnaryOperator, ValueField, ValueTypeDeclaration, VariableStatement,
-    WhenBranch, WhenExpression, WhileLoop,
+    IfElse, Literal, Mutability, ObjectTypeDeclaration, Parameter, SimpleType, Statement,
+    StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField, ValueTypeDeclaration,
+    VariableStatement, WhenBranch, WhenExpression, WhileLoop,
 };
 use crate::lexer::{Error, Lexer, Span, Token, TokenKind};
 
@@ -33,6 +33,7 @@ impl<'a> Parser<'a> {
             TokenKind::Val | TokenKind::Var => self.parse_variable_statement(),
             TokenKind::Fun => self.parse_function_statement(),
             TokenKind::Value => self.parse_value_type_declaration(),
+            TokenKind::Object => self.parse_object_type_declaration(),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
             _ => self.parse_expression_statement(),
@@ -93,6 +94,57 @@ impl<'a> Parser<'a> {
                 name,
                 parameters,
                 return_type,
+                body,
+            }),
+            span: Span {
+                start: start_span.start,
+                end: end_span.end,
+            },
+        })
+    }
+
+    // object_type_declaration ::= 'object' identifier ('(' (value_field (',' value_field)*)? ')')? block
+    fn parse_object_type_declaration(&mut self) -> Result<Statement, Error> {
+        let start_span = self.current_token.span;
+        self.expect_token(TokenKind::Object)?;
+
+        let name = match self.current_token.kind.clone() {
+            TokenKind::Identifier(name) => name,
+            _ => {
+                return Err(Error {
+                    message: format!(
+                        "Expected object type name, got {:?}",
+                        self.current_token.kind
+                    ),
+                    span: self.current_token.span,
+                })
+            }
+        };
+        self.next_token(); // consume object type name
+
+        let mut fields = Vec::new();
+        if self.current_token.kind == TokenKind::LParen {
+            self.next_token(); // consume '('
+
+            if self.current_token.kind != TokenKind::RParen {
+                fields.push(self.parse_value_field()?);
+                while self.current_token.kind == TokenKind::Comma {
+                    self.next_token(); // consume ','
+                    fields.push(self.parse_value_field()?);
+                }
+            }
+            self.expect_token(TokenKind::RParen)?;
+        }
+
+        self.require_token(TokenKind::LBrace)?;
+
+        let (body, body_span) = self.parse_block()?;
+        let end_span = body_span;
+
+        Ok(Statement {
+            kind: StatementKind::ObjectType(ObjectTypeDeclaration {
+                name,
+                fields,
                 body,
             }),
             span: Span {

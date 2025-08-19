@@ -1,8 +1,8 @@
 use crate::ast::{
     BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop, FunctionDefinition,
-    IfElse, Literal, Mutability, Parameter, SimpleType, Statement, StatementKind, Tuple,
-    TupleType, Type, UnaryOperator, ValueField, ValueTypeDeclaration, VariableStatement,
-    WhenBranch, WhenExpression, WhileLoop,
+    IfElse, Literal, Mutability, ObjectTypeDeclaration, Parameter, SimpleType, Statement,
+    StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField, ValueTypeDeclaration,
+    VariableStatement, WhenBranch, WhenExpression, WhileLoop,
 };
 use crate::lexer::{Lexer, Span};
 use crate::parser::Parser;
@@ -28,6 +28,45 @@ fn test_parse_for_statement() {
             },
         })),
         span: Span { start: 0, end: 16 },
+    };
+    assert_eq!(parser.parse_statement(), Ok(expected));
+}
+
+#[test]
+fn test_parse_object_type_declaration_with_fields() {
+    let input = "object Point(val x: i32, var y: i32) { 1 }";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let expected = Statement {
+        kind: StatementKind::ObjectType(ObjectTypeDeclaration {
+            name: "Point".to_string(),
+            fields: vec![
+                ValueField {
+                    mutability: Mutability::Val,
+                    name: "x".to_string(),
+                    type_annotation: Type::Simple(SimpleType {
+                        base: BaseType::User("i32".to_string()),
+                        specifiers: vec![],
+                    }),
+                },
+                ValueField {
+                    mutability: Mutability::Var,
+                    name: "y".to_string(),
+                    type_annotation: Type::Simple(SimpleType {
+                        base: BaseType::User("i32".to_string()),
+                        specifiers: vec![],
+                    }),
+                },
+            ],
+            body: Block {
+                statements: vec![],
+                expression: Some(Box::new(Expression {
+                    kind: ExpressionKind::Literal(Literal::Integer(1)),
+                    span: Span { start: 39, end: 40 },
+                })),
+            },
+        }),
+        span: Span { start: 0, end: 42 },
     };
     assert_eq!(parser.parse_statement(), Ok(expected));
 }
