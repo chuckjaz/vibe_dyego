@@ -30,6 +30,8 @@ pub enum TypeSpecifier {
     Optional,
 }
 
+use crate::parser::Span;
+
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub struct Program {
@@ -37,7 +39,13 @@ pub struct Program {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Statement {
+pub struct Statement {
+    pub kind: StatementKind,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum StatementKind {
     Variable(VariableStatement),
     Function(FunctionDefinition),
     ValueType(ValueTypeDeclaration),
@@ -94,7 +102,14 @@ pub struct VariableStatement {
 
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
-pub enum Expression {
+pub struct Expression {
+    pub kind: ExpressionKind,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq)]
+#[allow(dead_code)]
+pub enum ExpressionKind {
     Literal(Literal),
     Binary(Box<Expression>, BinaryOperator, Box<Expression>),
     Unary(UnaryOperator, Box<Expression>),
