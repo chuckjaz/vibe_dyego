@@ -46,6 +46,7 @@ pub enum TokenKind {
     Semicolon,
     LBracket,
     Slash,
+    Dot,
 
     // Reserved words
     Else,
@@ -55,6 +56,7 @@ pub enum TokenKind {
     If,
     In,
     Illegal,
+    Mod,
     Object,
     Val,
     Value,
@@ -190,6 +192,7 @@ impl<'a> Lexer<'a> {
             b':' => TokenKind::Colon,
             b';' => TokenKind::Semicolon,
             b',' => TokenKind::Comma,
+            b'.' => TokenKind::Dot,
             b'"' => {
                 let kind = self.read_string();
                 let end = self.position;
@@ -279,6 +282,7 @@ impl<'a> Lexer<'a> {
             "val" => TokenKind::Val,
             "var" => TokenKind::Var,
             "fun" => TokenKind::Fun,
+            "mod" => TokenKind::Mod,
             "value" => TokenKind::Value,
             "object" => TokenKind::Object,
             "when" => TokenKind::When,

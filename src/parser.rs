@@ -1,7 +1,7 @@
 use crate::ast::{
     ArrayLiteral, BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop,
     FunctionDefinition, FunctionSignature, FunctionType, IfElse, LambdaExpression, Literal,
-    Mutability, ObjectType, ObjectTypeDeclaration, Parameter, SimpleType, Statement,
+    Module, Mutability, ObjectType, ObjectTypeDeclaration, Parameter, SimpleType, Statement,
     StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField, ValueType,
     ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression, WhileLoop,
 };
@@ -44,6 +44,7 @@ impl<'a> Parser<'a> {
             TokenKind::Object => self.parse_object_type_declaration(),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
+            TokenKind::Mod => self.parse_module_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -714,6 +715,36 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // module_statement ::= 'mod' identifier block
+    fn parse_module_statement(&mut self) -> Result<Statement, Error> {
+        let start_span = self.current_token.span;
+        self.expect_token(TokenKind::Mod)?;
+
+        let name = match self.current_token.kind.clone() {
+            TokenKind::Identifier(name) => name,
+            _ => {
+                return Err(Error {
+                    message: format!("Expected module name, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
+            }
+        };
+        self.next_token(); // consume module name
+
+        self.require_token(TokenKind::LBrace)?;
+
+        let (body, body_span) = self.parse_block()?;
+        let end_span = body_span;
+
+        Ok(Statement {
+            kind: StatementKind::Module(Module { name, body }),
+            span: Span {
+                start: start_span.start,
+                end: end_span.end,
+            },
+        })
+    }
+
     fn parse_postfix(&mut self) -> Result<Expression, Error> {
         let mut expr = self.parse_primary()?;
 
@@ -727,6 +758,31 @@ impl<'a> Parser<'a> {
                     self.expect_token(TokenKind::RBracket)?;
                     expr = Expression {
                         kind: ExpressionKind::Index(Box::new(expr), Box::new(index)),
+                        span: Span {
+                            start: start_pos,
+                            end: end_span.end,
+                        },
+                    };
+                }
+                TokenKind::Dot => {
+                    let start_pos = expr.span.start;
+                    self.next_token(); // consume '.'
+                    let member = match self.current_token.kind.clone() {
+                        TokenKind::Identifier(name) => name,
+                        _ => {
+                            return Err(Error {
+                                message: format!(
+                                    "Expected identifier after '.', got {:?}",
+                                    self.current_token.kind
+                                ),
+                                span: self.current_token.span,
+                            })
+                        }
+                    };
+                    let end_span = self.current_token.span;
+                    self.next_token(); // consume member name
+                    expr = Expression {
+                        kind: ExpressionKind::MemberAccess(Box::new(expr), member),
                         span: Span {
                             start: start_pos,
                             end: end_span.end,
@@ -1115,3 +1171,7 @@ mod parser_array_tests;
 #[cfg(test)]
 #[path = "parser_lambda_tests.rs"]
 mod parser_lambda_tests;
+
+#[cfg(test)]
+#[path = "parser_module_tests.rs"]
+mod parser_module_tests;

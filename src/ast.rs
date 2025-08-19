@@ -74,6 +74,13 @@ pub enum StatementKind {
     Expression(Expression),
     WhileLoop(Box<WhileLoop>),
     ForLoop(Box<ForLoop>),
+    Module(Module),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Module {
+    pub name: String,
+    pub body: Block,
 }
 
 #[derive(Debug, PartialEq)]
@@ -154,6 +161,7 @@ pub enum ExpressionKind {
     Tuple(Tuple),
     Index(Box<Expression>, Box<Expression>),
     Lambda(Box<LambdaExpression>),
+    MemberAccess(Box<Expression>, String),
 }
 
 #[derive(Debug, PartialEq)]
