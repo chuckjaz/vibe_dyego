@@ -18,6 +18,13 @@ pub enum BaseType {
     Object(ObjectType),
     Value(ValueType),
     Array(Box<Type>),
+    Function(FunctionType),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FunctionType {
+    pub parameters: Vec<Type>,
+    pub return_type: Box<Type>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -146,6 +153,14 @@ pub enum ExpressionKind {
     GroupedExpression(Box<Expression>),
     Tuple(Tuple),
     Index(Box<Expression>, Box<Expression>),
+    Lambda(Box<LambdaExpression>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LambdaExpression {
+    pub parameters: Vec<Parameter>,
+    pub return_type: Option<Type>,
+    pub body: Block,
 }
 
 #[derive(Debug, PartialEq)]
