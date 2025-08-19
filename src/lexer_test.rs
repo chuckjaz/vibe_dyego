@@ -2,7 +2,7 @@ use super::{Lexer, TokenKind};
 
 #[test]
 fn test_next_token() {
-    let input = "=+(){},";
+    let input = "=+(){},[]";
     let mut lexer = Lexer::new(input);
 
     let tokens = vec![
@@ -13,6 +13,8 @@ fn test_next_token() {
         TokenKind::LBrace,
         TokenKind::RBrace,
         TokenKind::Comma,
+        TokenKind::LBracket,
+        TokenKind::RBracket,
         TokenKind::Eof,
     ];
 

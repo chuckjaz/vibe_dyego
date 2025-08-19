@@ -40,7 +40,9 @@ pub enum TokenKind {
     Plus,
     RArrow,
     RBrace,
+    RBracket,
     RParen,
+    LBracket,
     Slash,
 
     // Reserved words
@@ -172,6 +174,8 @@ impl<'a> Lexer<'a> {
             }
             b'(' => TokenKind::LParen,
             b')' => TokenKind::RParen,
+            b'[' => TokenKind::LBracket,
+            b']' => TokenKind::RBracket,
             b'{' => TokenKind::LBrace,
             b'}' => TokenKind::RBrace,
             b':' => TokenKind::Colon,
