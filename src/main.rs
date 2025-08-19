@@ -1,9 +1,11 @@
 mod ast;
+mod lexer;
 mod parser;
 
-use parser::{Lexer, Parser};
+use crate::lexer::{Error, Lexer};
+use crate::parser::Parser;
 
-fn report_error(input: &str, line_starts: &[usize], error: parser::Error) {
+fn report_error(input: &str, line_starts: &[usize], error: Error) {
     let line = line_starts
         .iter()
         .rposition(|&s| s <= error.span.start)
