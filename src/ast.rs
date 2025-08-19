@@ -30,7 +30,7 @@ pub enum TypeSpecifier {
     Optional,
 }
 
-use crate::parser::Span;
+use crate::lexer::Span;
 
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
