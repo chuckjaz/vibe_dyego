@@ -42,6 +42,7 @@ pub enum TokenKind {
     RBrace,
     RBracket,
     RParen,
+    Semicolon,
     LBracket,
     Slash,
 
@@ -179,6 +180,7 @@ impl<'a> Lexer<'a> {
             b'{' => TokenKind::LBrace,
             b'}' => TokenKind::RBrace,
             b':' => TokenKind::Colon,
+            b';' => TokenKind::Semicolon,
             b',' => TokenKind::Comma,
             b'"' => {
                 let kind = self.read_string();

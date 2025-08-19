@@ -189,8 +189,12 @@ pub struct FunctionCall {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ArrayLiteral {
-    pub elements: Vec<Expression>,
+pub enum ArrayLiteral {
+    List(Vec<Expression>),
+    Sized {
+        value: Box<Expression>,
+        size: Box<Expression>,
+    },
 }
 
 #[derive(Debug, PartialEq)]

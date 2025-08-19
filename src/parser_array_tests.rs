@@ -22,11 +22,35 @@ fn test_parse_array_type() {
                 }))),
             })),
             value: Expression {
-                kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral { elements: vec![] })),
+                kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral::List(vec![]))),
                 span: Span { start: 15, end: 17 },
             },
         }),
         span: Span { start: 0, end: 17 },
+    };
+    assert_eq!(parser.parse_statement(), Ok(expected));
+}
+
+#[test]
+fn test_parse_sized_array_literal() {
+    let input = "[1; 5]";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let expected = Statement {
+        kind: StatementKind::Expression(Expression {
+            kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral::Sized {
+                value: Box::new(Expression {
+                    kind: ExpressionKind::Literal(Literal::Integer(1)),
+                    span: Span { start: 1, end: 2 },
+                }),
+                size: Box::new(Expression {
+                    kind: ExpressionKind::Literal(Literal::Integer(5)),
+                    span: Span { start: 4, end: 5 },
+                }),
+            })),
+            span: Span { start: 0, end: 6 },
+        }),
+        span: Span { start: 0, end: 6 },
     };
     assert_eq!(parser.parse_statement(), Ok(expected));
 }
@@ -48,7 +72,7 @@ fn test_parse_multidimensional_array_type() {
                 }))),
             })),
             value: Expression {
-                kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral { elements: vec![] })),
+                kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral::List(vec![]))),
                 span: Span { start: 17, end: 19 },
             },
         }),
@@ -64,22 +88,20 @@ fn test_parse_array_literal() {
     let mut parser = Parser::new(lexer);
     let expected = Statement {
         kind: StatementKind::Expression(Expression {
-            kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral {
-                elements: vec![
-                    Expression {
-                        kind: ExpressionKind::Literal(Literal::Integer(1)),
-                        span: Span { start: 1, end: 2 },
-                    },
-                    Expression {
-                        kind: ExpressionKind::Literal(Literal::Integer(2)),
-                        span: Span { start: 4, end: 5 },
-                    },
-                    Expression {
-                        kind: ExpressionKind::Literal(Literal::Integer(3)),
-                        span: Span { start: 7, end: 8 },
-                    },
-                ],
-            })),
+            kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral::List(vec![
+                Expression {
+                    kind: ExpressionKind::Literal(Literal::Integer(1)),
+                    span: Span { start: 1, end: 2 },
+                },
+                Expression {
+                    kind: ExpressionKind::Literal(Literal::Integer(2)),
+                    span: Span { start: 4, end: 5 },
+                },
+                Expression {
+                    kind: ExpressionKind::Literal(Literal::Integer(3)),
+                    span: Span { start: 7, end: 8 },
+                },
+            ]))),
             span: Span { start: 0, end: 9 },
         }),
         span: Span { start: 0, end: 9 },

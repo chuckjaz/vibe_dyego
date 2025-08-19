@@ -776,9 +776,38 @@ impl<'a> Parser<'a> {
         let start_span = self.current_token.span;
         self.expect_token(TokenKind::LBracket)?;
 
-        let mut elements = Vec::new();
-        if self.current_token.kind != TokenKind::RBracket {
-            elements.push(self.parse_expression()?);
+        if self.current_token.kind == TokenKind::RBracket {
+            let end_span = self.current_token.span;
+            self.next_token(); // consume ']'
+            return Ok(Expression {
+                kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral::List(vec![]))),
+                span: Span {
+                    start: start_span.start,
+                    end: end_span.end,
+                },
+            });
+        }
+
+        let first_expr = self.parse_expression()?;
+
+        if self.current_token.kind == TokenKind::Semicolon {
+            self.next_token(); // consume ';'
+            let size_expr = self.parse_expression()?;
+            let end_span = self.current_token.span;
+            self.expect_token(TokenKind::RBracket)?;
+
+            Ok(Expression {
+                kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral::Sized {
+                    value: Box::new(first_expr),
+                    size: Box::new(size_expr),
+                })),
+                span: Span {
+                    start: start_span.start,
+                    end: end_span.end,
+                },
+            })
+        } else {
+            let mut elements = vec![first_expr];
             while self.current_token.kind == TokenKind::Comma {
                 self.next_token(); // consume ','
                 if self.current_token.kind == TokenKind::RBracket {
@@ -786,18 +815,18 @@ impl<'a> Parser<'a> {
                 }
                 elements.push(self.parse_expression()?);
             }
+
+            let end_span = self.current_token.span;
+            self.expect_token(TokenKind::RBracket)?;
+
+            Ok(Expression {
+                kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral::List(elements))),
+                span: Span {
+                    start: start_span.start,
+                    end: end_span.end,
+                },
+            })
         }
-
-        let end_span = self.current_token.span;
-        self.expect_token(TokenKind::RBracket)?;
-
-        Ok(Expression {
-            kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral { elements })),
-            span: Span {
-                start: start_span.start,
-                end: end_span.end,
-            },
-        })
     }
 
     fn parse_paren_expression(&mut self) -> Result<Expression, Error> {
