@@ -50,7 +50,6 @@ pub enum TokenKind {
     // Reserved words
     Else,
     Eof,
-    Fn,
     For,
     Fun,
     If,
@@ -279,7 +278,6 @@ impl<'a> Lexer<'a> {
             "else" => TokenKind::Else,
             "val" => TokenKind::Val,
             "var" => TokenKind::Var,
-            "fn" => TokenKind::Fn,
             "fun" => TokenKind::Fun,
             "value" => TokenKind::Value,
             "object" => TokenKind::Object,
