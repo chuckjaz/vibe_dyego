@@ -6,7 +6,7 @@ use crate::{
 
 #[test]
 fn test_lambda_expression() {
-    let input = "fn(x: int, y: int) -> int { x + y }";
+    let input = "{ x: int, y: int -> x + y } -> int";
     let l = Lexer::new(input);
     let mut p = Parser::new(l);
     let expr = p.parse_expression().unwrap();
@@ -82,7 +82,7 @@ fn test_function_type() {
 
 #[test]
 fn test_variable_declaration_with_lambda() {
-    let input = "val add = fn(x: int, y: int) -> int { x + y }";
+    let input = "val add = { x: int, y: int -> x + y } -> int";
     let l = Lexer::new(input);
     let mut p = Parser::new(l);
     let stmt = p.parse_statement().unwrap();
@@ -104,7 +104,7 @@ fn test_variable_declaration_with_lambda() {
 
 #[test]
 fn test_variable_declaration_with_function_type() {
-    let input = "val add: fn(int, int) -> int = fn(x: int, y: int) -> int { x + y }";
+    let input = "val add: fn(int, int) -> int = { x: int, y: int -> x + y } -> int";
     let l = Lexer::new(input);
     let mut p = Parser::new(l);
     let stmt = p.parse_statement().unwrap();

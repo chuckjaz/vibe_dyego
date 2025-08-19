@@ -10,6 +10,7 @@ use crate::lexer::{Error, Lexer, Span, Token, TokenKind};
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     current_token: Token,
+    peek_token: Token,
 }
 
 impl<'a> Parser<'a> {
@@ -20,13 +21,19 @@ impl<'a> Parser<'a> {
                 kind: TokenKind::Eof,
                 span: Span { start: 0, end: 0 },
             },
+            peek_token: Token {
+                kind: TokenKind::Eof,
+                span: Span { start: 0, end: 0 },
+            },
         };
+        p.next_token();
         p.next_token();
         p
     }
 
     fn next_token(&mut self) {
-        self.current_token = self.lexer.next_token();
+        self.current_token = self.peek_token.clone();
+        self.peek_token = self.lexer.next_token();
     }
 
     pub fn parse_statement(&mut self) -> Result<Statement, Error> {
@@ -759,7 +766,7 @@ impl<'a> Parser<'a> {
                 })
             }
             TokenKind::LParen => self.parse_paren_expression(),
-            TokenKind::Fn => self.parse_lambda_expression(),
+            TokenKind::LBrace => self.parse_lambda_expression(),
             TokenKind::If => self.parse_if_expression(),
             TokenKind::When => self.parse_when_expression(),
             TokenKind::Identifier(name) => {
@@ -989,25 +996,72 @@ impl<'a> Parser<'a> {
             },
         ))
     }
-    // lambda_expression ::= 'fn' '(' function_parameters ')' ('->' type)? block
+    // lambda_parameters ::= (parameter (',' parameter)*)?
+    fn parse_lambda_parameters(&mut self) -> Result<Vec<Parameter>, Error> {
+        let mut params = Vec::new();
+        if self.current_token.kind == TokenKind::Arrow {
+            return Ok(params);
+        }
+
+        params.push(self.parse_parameter()?);
+
+        while self.current_token.kind == TokenKind::Comma {
+            self.next_token(); // consume ','
+            if self.current_token.kind == TokenKind::Arrow {
+                break;
+            }
+            params.push(self.parse_parameter()?);
+        }
+
+        Ok(params)
+    }
+
+    // lambda_expression ::= '{' lambda_parameters '->' block_content '}' ('->' type)?
     fn parse_lambda_expression(&mut self) -> Result<Expression, Error> {
         let start_span = self.current_token.span;
-        self.expect_token(TokenKind::Fn)?;
-        self.expect_token(TokenKind::LParen)?;
+        self.expect_token(TokenKind::LBrace)?; // consume '{'
 
-        let parameters = self.parse_function_parameters()?;
+        let parameters = self.parse_lambda_parameters()?;
+
+        self.expect_token(TokenKind::Arrow)?; // consume '->'
+
+        let mut statements = Vec::new();
+        while self.current_token.kind != TokenKind::RBrace && self.current_token.kind != TokenKind::Eof {
+            statements.push(self.parse_statement()?);
+        }
+
+        let body_end_span = self.current_token.span;
+        self.expect_token(TokenKind::RBrace)?; // consume '}'
+
+        let mut expression = None;
+        if let Some(stmt) = statements.last() {
+            if let StatementKind::Expression(_expr) = &stmt.kind {
+                if let Statement {
+                    kind: StatementKind::Expression(expr),
+                    ..
+                } = statements.pop().unwrap()
+                {
+                    expression = Some(Box::new(expr));
+                }
+            }
+        }
+
+        let body = Block {
+            statements,
+            expression,
+        };
+
+        let mut final_span_end = body_end_span.end;
 
         let return_type = if self.current_token.kind == TokenKind::Arrow {
             self.next_token(); // consume '->'
-            Some(self.parse_type()?)
+            let type_ = self.parse_type()?;
+            // HACK: We take the start of the next token as the end of our type annotation.
+            final_span_end = self.current_token.span.start;
+            Some(type_)
         } else {
             None
         };
-
-        self.require_token(TokenKind::LBrace)?;
-
-        let (body, body_span) = self.parse_block()?;
-        let end_span = body_span;
 
         Ok(Expression {
             kind: ExpressionKind::Lambda(Box::new(LambdaExpression {
@@ -1017,7 +1071,7 @@ impl<'a> Parser<'a> {
             })),
             span: Span {
                 start: start_span.start,
-                end: end_span.end,
+                end: final_span_end,
             },
         })
     }
