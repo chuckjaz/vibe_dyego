@@ -1,8 +1,8 @@
 use crate::ast::{
     BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop, FunctionDefinition,
-    IfElse, Literal, Mutability, ObjectTypeDeclaration, Parameter, SimpleType, Statement,
-    StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField, ValueTypeDeclaration,
-    VariableStatement, WhenBranch, WhenExpression, WhileLoop,
+    FunctionSignature, IfElse, Literal, Mutability, ObjectType, ObjectTypeDeclaration, Parameter,
+    SimpleType, Statement, StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField,
+    ValueType, ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression, WhileLoop,
 };
 use crate::lexer::{Error, Lexer, Span, Token, TokenKind};
 
@@ -284,6 +284,90 @@ impl<'a> Parser<'a> {
         })
     }
 
+    // function_signature ::= 'fun' identifier '(' function_parameters ')' ':' type
+    fn parse_function_signature(&mut self) -> Result<FunctionSignature, Error> {
+        self.expect_token(TokenKind::Fun)?;
+
+        let name = match self.current_token.kind.clone() {
+            TokenKind::Identifier(name) => name,
+            _ => {
+                return Err(Error {
+                    message: format!("Expected function name, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
+            }
+        };
+        self.next_token(); // consume function name
+
+        self.expect_token(TokenKind::LParen)?;
+
+        let parameters = self.parse_function_parameters()?;
+
+        self.expect_token(TokenKind::Colon)?;
+
+        let return_type = self.parse_type()?;
+
+        Ok(FunctionSignature {
+            name,
+            parameters,
+            return_type,
+        })
+    }
+
+    fn parse_object_type(&mut self) -> Result<ObjectType, Error> {
+        let mut fields = Vec::new();
+        if self.current_token.kind == TokenKind::LParen {
+            self.next_token(); // consume '('
+
+            if self.current_token.kind != TokenKind::RParen {
+                fields.push(self.parse_value_field()?);
+                while self.current_token.kind == TokenKind::Comma {
+                    self.next_token(); // consume ','
+                    fields.push(self.parse_value_field()?);
+                }
+            }
+            self.expect_token(TokenKind::RParen)?;
+        }
+
+        self.expect_token(TokenKind::LBrace)?;
+
+        let mut functions = Vec::new();
+        while self.current_token.kind != TokenKind::RBrace {
+            functions.push(self.parse_function_signature()?);
+        }
+
+        self.expect_token(TokenKind::RBrace)?;
+
+        Ok(ObjectType { fields, functions })
+    }
+
+    fn parse_value_type(&mut self) -> Result<ValueType, Error> {
+        let mut fields = Vec::new();
+        if self.current_token.kind == TokenKind::LParen {
+            self.next_token(); // consume '('
+
+            if self.current_token.kind != TokenKind::RParen {
+                fields.push(self.parse_value_field()?);
+                while self.current_token.kind == TokenKind::Comma {
+                    self.next_token(); // consume ','
+                    fields.push(self.parse_value_field()?);
+                }
+            }
+            self.expect_token(TokenKind::RParen)?;
+        }
+
+        self.expect_token(TokenKind::LBrace)?;
+
+        let mut functions = Vec::new();
+        while self.current_token.kind != TokenKind::RBrace {
+            functions.push(self.parse_function_signature()?);
+        }
+
+        self.expect_token(TokenKind::RBrace)?;
+
+        Ok(ValueType { fields, functions })
+    }
+
     // type ::= identifier | tuple_type
     fn parse_type(&mut self) -> Result<Type, Error> {
         let base_type = match self.current_token.kind.clone() {
@@ -292,6 +376,14 @@ impl<'a> Parser<'a> {
                 BaseType::User(name)
             }
             TokenKind::LParen => return self.parse_tuple_type(),
+            TokenKind::Object => {
+                self.next_token();
+                BaseType::Object(self.parse_object_type()?)
+            }
+            TokenKind::Value => {
+                self.next_token();
+                BaseType::Value(self.parse_value_type()?)
+            }
             _ => {
                 return Err(Error {
                     message: format!("Expected type name, got {:?}", self.current_token.kind),

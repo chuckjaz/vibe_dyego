@@ -16,6 +16,27 @@ pub struct SimpleType {
 pub enum BaseType {
     User(String),
     Tuple(TupleType),
+    Object(ObjectType),
+    Value(ValueType),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ObjectType {
+    pub fields: Vec<ValueField>,
+    pub functions: Vec<FunctionSignature>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ValueType {
+    pub fields: Vec<ValueField>,
+    pub functions: Vec<FunctionSignature>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FunctionSignature {
+    pub name: String,
+    pub parameters: Vec<Parameter>,
+    pub return_type: Type,
 }
 
 #[derive(Debug, PartialEq)]

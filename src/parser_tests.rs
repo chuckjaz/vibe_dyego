@@ -1,8 +1,8 @@
 use crate::ast::{
     BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop, FunctionDefinition,
-    IfElse, Literal, Mutability, ObjectTypeDeclaration, Parameter, SimpleType, Statement,
-    StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField, ValueTypeDeclaration,
-    VariableStatement, WhenBranch, WhenExpression, WhileLoop,
+    FunctionSignature, IfElse, Literal, Mutability, ObjectType, ObjectTypeDeclaration, Parameter,
+    SimpleType, Statement, StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField,
+    ValueType, ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression, WhileLoop,
 };
 use crate::lexer::{Lexer, Span};
 use crate::parser::Parser;
@@ -28,6 +28,218 @@ fn test_parse_for_statement() {
             },
         })),
         span: Span { start: 0, end: 16 },
+    };
+    assert_eq!(parser.parse_statement(), Ok(expected));
+}
+
+#[test]
+fn test_parse_variable_with_object_type() {
+    let input = "val x: object(val a: i32) { fun b(): i32 } = 1";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let expected = Statement {
+        kind: StatementKind::Variable(VariableStatement {
+            mutable: false,
+            name: "x".to_string(),
+            type_annotation: Some(Type::Simple(SimpleType {
+                base: BaseType::Object(ObjectType {
+                    fields: vec![ValueField {
+                        mutability: Mutability::Val,
+                        name: "a".to_string(),
+                        type_annotation: Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                    }],
+                    functions: vec![FunctionSignature {
+                        name: "b".to_string(),
+                        parameters: vec![],
+                        return_type: Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                    }],
+                }),
+                specifiers: vec![],
+            })),
+            value: Expression {
+                kind: ExpressionKind::Literal(Literal::Integer(1)),
+                span: Span { start: 45, end: 46 },
+            },
+        }),
+        span: Span { start: 0, end: 46 },
+    };
+    assert_eq!(parser.parse_statement(), Ok(expected));
+}
+
+#[test]
+fn test_parse_variable_with_value_type() {
+    let input = "val x: value(val a: i32) { fun b(): i32 } = 1";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let expected = Statement {
+        kind: StatementKind::Variable(VariableStatement {
+            mutable: false,
+            name: "x".to_string(),
+            type_annotation: Some(Type::Simple(SimpleType {
+                base: BaseType::Value(ValueType {
+                    fields: vec![ValueField {
+                        mutability: Mutability::Val,
+                        name: "a".to_string(),
+                        type_annotation: Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                    }],
+                    functions: vec![FunctionSignature {
+                        name: "b".to_string(),
+                        parameters: vec![],
+                        return_type: Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                    }],
+                }),
+                specifiers: vec![],
+            })),
+            value: Expression {
+                kind: ExpressionKind::Literal(Literal::Integer(1)),
+                span: Span { start: 44, end: 45 },
+            },
+        }),
+        span: Span { start: 0, end: 45 },
+    };
+    assert_eq!(parser.parse_statement(), Ok(expected));
+}
+
+#[test]
+fn test_parse_object_type_no_fields() {
+    let input = "val x: object { fun b(): i32 } = 1";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let expected = Statement {
+        kind: StatementKind::Variable(VariableStatement {
+            mutable: false,
+            name: "x".to_string(),
+            type_annotation: Some(Type::Simple(SimpleType {
+                base: BaseType::Object(ObjectType {
+                    fields: vec![],
+                    functions: vec![FunctionSignature {
+                        name: "b".to_string(),
+                        parameters: vec![],
+                        return_type: Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                    }],
+                }),
+                specifiers: vec![],
+            })),
+            value: Expression {
+                kind: ExpressionKind::Literal(Literal::Integer(1)),
+                span: Span { start: 33, end: 34 },
+            },
+        }),
+        span: Span { start: 0, end: 34 },
+    };
+    assert_eq!(parser.parse_statement(), Ok(expected));
+}
+
+#[test]
+fn test_parse_value_type_no_fields() {
+    let input = "val x: value { fun b(): i32 } = 1";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let expected = Statement {
+        kind: StatementKind::Variable(VariableStatement {
+            mutable: false,
+            name: "x".to_string(),
+            type_annotation: Some(Type::Simple(SimpleType {
+                base: BaseType::Value(ValueType {
+                    fields: vec![],
+                    functions: vec![FunctionSignature {
+                        name: "b".to_string(),
+                        parameters: vec![],
+                        return_type: Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                    }],
+                }),
+                specifiers: vec![],
+            })),
+            value: Expression {
+                kind: ExpressionKind::Literal(Literal::Integer(1)),
+                span: Span { start: 32, end: 33 },
+            },
+        }),
+        span: Span { start: 0, end: 33 },
+    };
+    assert_eq!(parser.parse_statement(), Ok(expected));
+}
+
+#[test]
+fn test_parse_object_type_empty_fields() {
+    let input = "val x: object() { fun b(): i32 } = 1";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let expected = Statement {
+        kind: StatementKind::Variable(VariableStatement {
+            mutable: false,
+            name: "x".to_string(),
+            type_annotation: Some(Type::Simple(SimpleType {
+                base: BaseType::Object(ObjectType {
+                    fields: vec![],
+                    functions: vec![FunctionSignature {
+                        name: "b".to_string(),
+                        parameters: vec![],
+                        return_type: Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                    }],
+                }),
+                specifiers: vec![],
+            })),
+            value: Expression {
+                kind: ExpressionKind::Literal(Literal::Integer(1)),
+                span: Span { start: 35, end: 36 },
+            },
+        }),
+        span: Span { start: 0, end: 36 },
+    };
+    assert_eq!(parser.parse_statement(), Ok(expected));
+}
+
+#[test]
+fn test_parse_value_type_empty_fields() {
+    let input = "val x: value() { fun b(): i32 } = 1";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let expected = Statement {
+        kind: StatementKind::Variable(VariableStatement {
+            mutable: false,
+            name: "x".to_string(),
+            type_annotation: Some(Type::Simple(SimpleType {
+                base: BaseType::Value(ValueType {
+                    fields: vec![],
+                    functions: vec![FunctionSignature {
+                        name: "b".to_string(),
+                        parameters: vec![],
+                        return_type: Type::Simple(SimpleType {
+                            base: BaseType::User("i32".to_string()),
+                            specifiers: vec![],
+                        }),
+                    }],
+                }),
+                specifiers: vec![],
+            })),
+            value: Expression {
+                kind: ExpressionKind::Literal(Literal::Integer(1)),
+                span: Span { start: 34, end: 35 },
+            },
+        }),
+        span: Span { start: 0, end: 35 },
     };
     assert_eq!(parser.parse_statement(), Ok(expected));
 }
