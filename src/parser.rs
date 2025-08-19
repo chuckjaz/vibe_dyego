@@ -1,8 +1,8 @@
 use crate::ast::{
-    BaseType, BinaryOperator, Block, Expression, ExpressionKind, FunctionDefinition, IfElse,
-    Literal, Mutability, Parameter, SimpleType, Statement, StatementKind, Tuple, TupleType, Type,
-    UnaryOperator, ValueField, ValueTypeDeclaration, VariableStatement, WhenBranch,
-    WhenExpression,
+    BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop, FunctionDefinition,
+    IfElse, Literal, Mutability, Parameter, SimpleType, Statement, StatementKind, Tuple,
+    TupleType, Type, UnaryOperator, ValueField, ValueTypeDeclaration, VariableStatement,
+    WhenBranch, WhenExpression, WhileLoop,
 };
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -53,13 +53,16 @@ pub enum TokenKind {
     // Reserved words
     Else,
     Eof,
+    For,
     Fun,
     If,
+    In,
     Illegal,
     Val,
     Value,
     Var,
     When,
+    While,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -270,6 +273,9 @@ impl<'a> Lexer<'a> {
             "fun" => TokenKind::Fun,
             "value" => TokenKind::Value,
             "when" => TokenKind::When,
+            "for" => TokenKind::For,
+            "while" => TokenKind::While,
+            "in" => TokenKind::In,
             _ => TokenKind::Identifier(ident.to_string()),
         }
     }
@@ -308,6 +314,8 @@ impl<'a> Parser<'a> {
             TokenKind::Val | TokenKind::Var => self.parse_variable_statement(),
             TokenKind::Fun => self.parse_function_statement(),
             TokenKind::Value => self.parse_value_type_declaration(),
+            TokenKind::While => self.parse_while_statement(),
+            TokenKind::For => self.parse_for_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -598,6 +606,55 @@ impl<'a> Parser<'a> {
         Ok(Statement {
             kind: StatementKind::Expression(expr),
             span,
+        })
+    }
+
+    // while_statement ::= 'while' expression block
+    fn parse_while_statement(&mut self) -> Result<Statement, Error> {
+        let start_span = self.current_token.span;
+        self.expect_token(TokenKind::While)?;
+        let condition = self.parse_expression()?;
+        self.require_token(TokenKind::LBrace)?;
+        let (body, end_span) = self.parse_block()?;
+        Ok(Statement {
+            kind: StatementKind::WhileLoop(Box::new(WhileLoop { condition, body })),
+            span: Span {
+                start: start_span.start,
+                end: end_span.end,
+            },
+        })
+    }
+
+    // for_statement ::= 'for' identifier 'in' expression block
+    fn parse_for_statement(&mut self) -> Result<Statement, Error> {
+        let start_span = self.current_token.span;
+        self.expect_token(TokenKind::For)?;
+        let iterator = match self.current_token.kind.clone() {
+            TokenKind::Identifier(name) => {
+                self.next_token();
+                name
+            }
+            _ => {
+                return Err(Error {
+                    message: format!("Expected identifier, got {:?}", self.current_token.kind),
+                    span: self.current_token.span,
+                })
+            }
+        };
+        self.expect_token(TokenKind::In)?;
+        let iterable = self.parse_expression()?;
+        self.require_token(TokenKind::LBrace)?;
+        let (body, end_span) = self.parse_block()?;
+        Ok(Statement {
+            kind: StatementKind::ForLoop(Box::new(ForLoop {
+                iterator,
+                iterable,
+                body,
+            })),
+            span: Span {
+                start: start_span.start,
+                end: end_span.end,
+            },
         })
     }
 
@@ -976,10 +1033,59 @@ impl<'a> Parser<'a> {
 mod tests {
     use super::{ExpressionKind, Lexer, Parser, Span, StatementKind};
     use crate::ast::{
-        BaseType, BinaryOperator, Block, Expression, FunctionDefinition, IfElse, Literal,
+        BaseType, BinaryOperator, Block, Expression, ForLoop, FunctionDefinition, IfElse, Literal,
         Mutability, Parameter, SimpleType, Statement, Tuple, TupleType, Type, UnaryOperator,
-        ValueField, ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression,
+        ValueField, ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression, WhileLoop,
     };
+
+    #[test]
+    fn test_parse_for_statement() {
+        let input = "for i in 1 { 1 }";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement {
+            kind: StatementKind::ForLoop(Box::new(ForLoop {
+                iterator: "i".to_string(),
+                iterable: Expression {
+                    kind: ExpressionKind::Literal(Literal::Integer(1)),
+                    span: Span { start: 9, end: 10 },
+                },
+                body: Block {
+                    statements: vec![],
+                    expression: Some(Box::new(Expression {
+                        kind: ExpressionKind::Literal(Literal::Integer(1)),
+                        span: Span { start: 13, end: 14 },
+                    })),
+                },
+            })),
+            span: Span { start: 0, end: 16 },
+        };
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
+
+    #[test]
+    fn test_parse_while_statement() {
+        let input = "while 1 { 1 }";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let expected = Statement {
+            kind: StatementKind::WhileLoop(Box::new(WhileLoop {
+                condition: Expression {
+                    kind: ExpressionKind::Literal(Literal::Integer(1)),
+                    span: Span { start: 6, end: 7 },
+                },
+                body: Block {
+                    statements: vec![],
+                    expression: Some(Box::new(Expression {
+                        kind: ExpressionKind::Literal(Literal::Integer(1)),
+                        span: Span { start: 10, end: 11 },
+                    })),
+                },
+            })),
+            span: Span { start: 0, end: 13 },
+        };
+        assert_eq!(parser.parse_statement(), Ok(expected));
+    }
 
     #[test]
     fn test_parse_error() {

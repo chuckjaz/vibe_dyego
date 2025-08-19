@@ -50,6 +50,8 @@ pub enum StatementKind {
     Function(FunctionDefinition),
     ValueType(ValueTypeDeclaration),
     Expression(Expression),
+    WhileLoop(Box<WhileLoop>),
+    ForLoop(Box<ForLoop>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -116,8 +118,6 @@ pub enum ExpressionKind {
     Assignment(Box<AssignmentExpression>),
     FunctionCall(Box<FunctionCall>),
     ArrayLiteral(Box<ArrayLiteral>),
-    WhileLoop(Box<WhileLoop>),
-    ForLoop(Box<ForLoop>),
     IfElse(Box<IfElse>),
     When(Box<WhenExpression>),
     Identifier(String),
