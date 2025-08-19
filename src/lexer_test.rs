@@ -59,7 +59,7 @@ fn test_identifier() {
 
 #[test]
 fn test_keywords() {
-    let input = "fun if else val var value when for while in mod";
+    let input = "fun if else val var value when for while in module public publish";
     let mut lexer = Lexer::new(input);
 
     let keywords = vec![
@@ -73,7 +73,9 @@ fn test_keywords() {
         TokenKind::For,
         TokenKind::While,
         TokenKind::In,
-        TokenKind::Mod,
+        TokenKind::Module,
+        TokenKind::Public,
+        TokenKind::Publish,
     ];
 
     for keyword in keywords {

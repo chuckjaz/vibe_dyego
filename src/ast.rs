@@ -81,10 +81,12 @@ pub enum StatementKind {
 pub struct Module {
     pub name: String,
     pub body: Block,
+    pub published_names: Vec<String>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ObjectTypeDeclaration {
+    pub public: bool,
     pub name: String,
     pub fields: Vec<ValueField>,
     pub body: Block,
@@ -92,6 +94,7 @@ pub struct ObjectTypeDeclaration {
 
 #[derive(Debug, PartialEq)]
 pub struct ValueTypeDeclaration {
+    pub public: bool,
     pub name: String,
     pub fields: Vec<ValueField>,
     pub body: Block,
@@ -112,6 +115,7 @@ pub struct ValueField {
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionDefinition {
+    pub public: bool,
     pub name: String,
     pub parameters: Vec<Parameter>,
     pub return_type: Option<Type>,
@@ -132,6 +136,7 @@ pub struct Block {
 
 #[derive(Debug, PartialEq)]
 pub struct VariableStatement {
+    pub public: bool,
     pub mutable: bool,
     pub name: String,
     pub type_annotation: Option<Type>,
