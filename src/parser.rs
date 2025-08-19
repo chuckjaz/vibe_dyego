@@ -1,8 +1,9 @@
 use crate::ast::{
-    BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop, FunctionDefinition,
-    FunctionSignature, IfElse, Literal, Mutability, ObjectType, ObjectTypeDeclaration, Parameter,
-    SimpleType, Statement, StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField,
-    ValueType, ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression, WhileLoop,
+    ArrayLiteral, BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop,
+    FunctionDefinition, FunctionSignature, IfElse, Literal, Mutability, ObjectType,
+    ObjectTypeDeclaration, Parameter, SimpleType, Statement, StatementKind, Tuple, TupleType,
+    Type, UnaryOperator, ValueField, ValueType, ValueTypeDeclaration, VariableStatement,
+    WhenBranch, WhenExpression, WhileLoop,
 };
 use crate::lexer::{Error, Lexer, Span, Token, TokenKind};
 
@@ -368,34 +369,44 @@ impl<'a> Parser<'a> {
         Ok(ValueType { fields, functions })
     }
 
-    // type ::= identifier | tuple_type
+    // type ::= base_type ('[' ']')*
+    // base_type ::= identifier | tuple_type
     fn parse_type(&mut self) -> Result<Type, Error> {
-        let base_type = match self.current_token.kind.clone() {
-            TokenKind::Identifier(name) => {
-                self.next_token(); // consume type name
-                BaseType::User(name)
-            }
-            TokenKind::LParen => return self.parse_tuple_type(),
-            TokenKind::Object => {
-                self.next_token();
-                BaseType::Object(self.parse_object_type()?)
-            }
-            TokenKind::Value => {
-                self.next_token();
-                BaseType::Value(self.parse_value_type()?)
-            }
-            _ => {
-                return Err(Error {
-                    message: format!("Expected type name, got {:?}", self.current_token.kind),
-                    span: self.current_token.span,
-                })
-            }
+        let mut type_ = if self.current_token.kind == TokenKind::LParen {
+            self.parse_tuple_type()?
+        } else {
+            let base_type = match self.current_token.kind.clone() {
+                TokenKind::Identifier(name) => {
+                    self.next_token(); // consume type name
+                    BaseType::User(name)
+                }
+                TokenKind::Object => {
+                    self.next_token();
+                    BaseType::Object(self.parse_object_type()?)
+                }
+                TokenKind::Value => {
+                    self.next_token();
+                    BaseType::Value(self.parse_value_type()?)
+                }
+                _ => {
+                    return Err(Error {
+                        message: format!("Expected type name, got {:?}", self.current_token.kind),
+                        span: self.current_token.span,
+                    });
+                }
+            };
+            Type::Simple(SimpleType { base: base_type })
         };
 
-        Ok(Type::Simple(SimpleType {
-            base: base_type,
-            specifiers: vec![],
-        }))
+        while self.current_token.kind == TokenKind::LBracket {
+            self.next_token(); // consume '['
+            self.expect_token(TokenKind::RBracket)?;
+            type_ = Type::Simple(SimpleType {
+                base: BaseType::Array(Box::new(type_)),
+            });
+        }
+
+        Ok(type_)
     }
 
     // tuple_type ::= '(' (type (',' type)*)? ','? ')'
@@ -415,7 +426,6 @@ impl<'a> Parser<'a> {
         self.expect_token(TokenKind::RParen)?;
         Ok(Type::Simple(SimpleType {
             base: BaseType::Tuple(TupleType { types }),
-            specifiers: vec![],
         }))
     }
 
@@ -689,8 +699,34 @@ impl<'a> Parser<'a> {
                 },
             })
         } else {
-            self.parse_primary()
+            self.parse_postfix()
         }
+    }
+
+    fn parse_postfix(&mut self) -> Result<Expression, Error> {
+        let mut expr = self.parse_primary()?;
+
+        loop {
+            match self.current_token.kind {
+                TokenKind::LBracket => {
+                    let start_pos = expr.span.start;
+                    self.next_token(); // consume '['
+                    let index = self.parse_expression()?;
+                    let end_span = self.current_token.span;
+                    self.expect_token(TokenKind::RBracket)?;
+                    expr = Expression {
+                        kind: ExpressionKind::Index(Box::new(expr), Box::new(index)),
+                        span: Span {
+                            start: start_pos,
+                            end: end_span.end,
+                        },
+                    };
+                }
+                _ => break,
+            }
+        }
+
+        Ok(expr)
     }
 
     // primary ::= integer | float | '(' expression ')' | if_expression | identifier
@@ -728,11 +764,40 @@ impl<'a> Parser<'a> {
                     span,
                 })
             }
+            TokenKind::LBracket => self.parse_array_literal(),
             _ => Err(Error {
                 message: format!("Unexpected token: {:?}", self.current_token.kind),
                 span,
             }),
         }
+    }
+
+    fn parse_array_literal(&mut self) -> Result<Expression, Error> {
+        let start_span = self.current_token.span;
+        self.expect_token(TokenKind::LBracket)?;
+
+        let mut elements = Vec::new();
+        if self.current_token.kind != TokenKind::RBracket {
+            elements.push(self.parse_expression()?);
+            while self.current_token.kind == TokenKind::Comma {
+                self.next_token(); // consume ','
+                if self.current_token.kind == TokenKind::RBracket {
+                    break;
+                }
+                elements.push(self.parse_expression()?);
+            }
+        }
+
+        let end_span = self.current_token.span;
+        self.expect_token(TokenKind::RBracket)?;
+
+        Ok(Expression {
+            kind: ExpressionKind::ArrayLiteral(Box::new(ArrayLiteral { elements })),
+            span: Span {
+                start: start_span.start,
+                end: end_span.end,
+            },
+        })
     }
 
     fn parse_paren_expression(&mut self) -> Result<Expression, Error> {
@@ -895,3 +960,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 #[path = "parser_tests.rs"]
 mod parser_tests;
+
+#[cfg(test)]
+#[path = "parser_array_tests.rs"]
+mod parser_array_tests;

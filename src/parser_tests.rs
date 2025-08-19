@@ -48,7 +48,6 @@ fn test_parse_variable_with_object_type() {
                         name: "a".to_string(),
                         type_annotation: Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                     }],
                     functions: vec![FunctionSignature {
@@ -56,11 +55,9 @@ fn test_parse_variable_with_object_type() {
                         parameters: vec![],
                         return_type: Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                     }],
                 }),
-                specifiers: vec![],
             })),
             value: Expression {
                 kind: ExpressionKind::Literal(Literal::Integer(1)),
@@ -88,7 +85,6 @@ fn test_parse_variable_with_value_type() {
                         name: "a".to_string(),
                         type_annotation: Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                     }],
                     functions: vec![FunctionSignature {
@@ -96,11 +92,9 @@ fn test_parse_variable_with_value_type() {
                         parameters: vec![],
                         return_type: Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                     }],
                 }),
-                specifiers: vec![],
             })),
             value: Expression {
                 kind: ExpressionKind::Literal(Literal::Integer(1)),
@@ -129,11 +123,9 @@ fn test_parse_object_type_no_fields() {
                         parameters: vec![],
                         return_type: Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                     }],
                 }),
-                specifiers: vec![],
             })),
             value: Expression {
                 kind: ExpressionKind::Literal(Literal::Integer(1)),
@@ -162,11 +154,9 @@ fn test_parse_value_type_no_fields() {
                         parameters: vec![],
                         return_type: Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                     }],
                 }),
-                specifiers: vec![],
             })),
             value: Expression {
                 kind: ExpressionKind::Literal(Literal::Integer(1)),
@@ -195,11 +185,9 @@ fn test_parse_object_type_empty_fields() {
                         parameters: vec![],
                         return_type: Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                     }],
                 }),
-                specifiers: vec![],
             })),
             value: Expression {
                 kind: ExpressionKind::Literal(Literal::Integer(1)),
@@ -228,11 +216,9 @@ fn test_parse_value_type_empty_fields() {
                         parameters: vec![],
                         return_type: Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                     }],
                 }),
-                specifiers: vec![],
             })),
             value: Expression {
                 kind: ExpressionKind::Literal(Literal::Integer(1)),
@@ -258,7 +244,6 @@ fn test_parse_object_type_declaration_with_fields() {
                     name: "x".to_string(),
                     type_annotation: Type::Simple(SimpleType {
                         base: BaseType::User("i32".to_string()),
-                        specifiers: vec![],
                     }),
                 },
                 ValueField {
@@ -266,7 +251,6 @@ fn test_parse_object_type_declaration_with_fields() {
                     name: "y".to_string(),
                     type_annotation: Type::Simple(SimpleType {
                         base: BaseType::User("i32".to_string()),
-                        specifiers: vec![],
                     }),
                 },
             ],
@@ -395,15 +379,12 @@ fn test_parse_variable_with_tuple_type() {
                     types: vec![
                         Type::Simple(SimpleType {
                             base: BaseType::User("i32".to_string()),
-                            specifiers: vec![],
                         }),
                         Type::Simple(SimpleType {
                             base: BaseType::User("f64".to_string()),
-                            specifiers: vec![],
                         }),
                     ],
                 }),
-                specifiers: vec![],
             })),
             value: Expression {
                 kind: ExpressionKind::Tuple(Tuple {
@@ -441,15 +422,12 @@ fn test_parse_function_with_tuple_type_parameter() {
                         types: vec![
                             Type::Simple(SimpleType {
                                 base: BaseType::User("i32".to_string()),
-                                specifiers: vec![],
                             }),
                             Type::Simple(SimpleType {
                                 base: BaseType::User("f64".to_string()),
-                                specifiers: vec![],
                             }),
                         ],
                     }),
-                    specifiers: vec![],
                 }),
             }],
             return_type: None,
@@ -792,20 +770,17 @@ fn test_parse_function_declaration() {
                     name: "a".to_string(),
                     type_annotation: Type::Simple(SimpleType {
                         base: BaseType::User("i32".to_string()),
-                        specifiers: vec![],
                     }),
                 },
                 Parameter {
                     name: "b".to_string(),
                     type_annotation: Type::Simple(SimpleType {
                         base: BaseType::User("f64".to_string()),
-                        specifiers: vec![],
                     }),
                 },
             ],
             return_type: Some(Type::Simple(SimpleType {
                 base: BaseType::User("bool".to_string()),
-                specifiers: vec![],
             })),
             body: Block {
                 statements: vec![],
@@ -834,7 +809,6 @@ fn test_parse_value_type_declaration_with_fields() {
                     name: "x".to_string(),
                     type_annotation: Type::Simple(SimpleType {
                         base: BaseType::User("i32".to_string()),
-                        specifiers: vec![],
                     }),
                 },
                 ValueField {
@@ -842,7 +816,6 @@ fn test_parse_value_type_declaration_with_fields() {
                     name: "y".to_string(),
                     type_annotation: Type::Simple(SimpleType {
                         base: BaseType::User("i32".to_string()),
-                        specifiers: vec![],
                     }),
                 },
             ],

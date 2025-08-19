@@ -8,7 +8,6 @@ pub enum Type {
 #[derive(Debug, PartialEq)]
 pub struct SimpleType {
     pub base: BaseType,
-    pub specifiers: Vec<TypeSpecifier>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -18,6 +17,7 @@ pub enum BaseType {
     Tuple(TupleType),
     Object(ObjectType),
     Value(ValueType),
+    Array(Box<Type>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -42,13 +42,6 @@ pub struct FunctionSignature {
 #[derive(Debug, PartialEq)]
 pub struct TupleType {
     pub types: Vec<Type>,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-#[allow(dead_code)]
-pub enum TypeSpecifier {
-    Array,
-    Optional,
 }
 
 use crate::lexer::Span;
@@ -152,6 +145,7 @@ pub enum ExpressionKind {
     Identifier(String),
     GroupedExpression(Box<Expression>),
     Tuple(Tuple),
+    Index(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, PartialEq)]
