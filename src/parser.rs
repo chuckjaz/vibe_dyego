@@ -383,7 +383,7 @@ impl<'a> Parser<'a> {
             self.parse_tuple_type()?
         } else {
             let base_type = match self.current_token.kind.clone() {
-                TokenKind::Fn => {
+                TokenKind::Fun => {
                     self.next_token();
                     BaseType::Function(self.parse_function_type()?)
                 }
@@ -1076,7 +1076,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    // function_type ::= 'fn' '(' (type (',' type)*)? ')' '->' type
+    // function_type ::= 'fun' '(' (type (',' type)*)? ')' '->' type
     fn parse_function_type(&mut self) -> Result<FunctionType, Error> {
         self.expect_token(TokenKind::LParen)?;
 

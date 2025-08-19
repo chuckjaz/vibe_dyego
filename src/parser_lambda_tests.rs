@@ -46,7 +46,7 @@ fn test_lambda_expression() {
 
 #[test]
 fn test_function_type() {
-    let input = "fn(int, int) -> int";
+    let input = "fun(int, int) -> int";
     let l = Lexer::new(input);
     let mut p = Parser::new(l);
     let type_ = p.parse_type().unwrap();
@@ -104,7 +104,7 @@ fn test_variable_declaration_with_lambda() {
 
 #[test]
 fn test_variable_declaration_with_function_type() {
-    let input = "val add: fn(int, int) -> int = { x: int, y: int -> x + y } -> int";
+    let input = "val add: fun(int, int) -> int = { x: int, y: int -> x + y } -> int";
     let l = Lexer::new(input);
     let mut p = Parser::new(l);
     let stmt = p.parse_statement().unwrap();
