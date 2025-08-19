@@ -1,9 +1,9 @@
 use crate::ast::{
     ArrayLiteral, BaseType, BinaryOperator, Block, Expression, ExpressionKind, ForLoop,
-    FunctionDefinition, FunctionSignature, IfElse, Literal, Mutability, ObjectType,
-    ObjectTypeDeclaration, Parameter, SimpleType, Statement, StatementKind, Tuple, TupleType,
-    Type, UnaryOperator, ValueField, ValueType, ValueTypeDeclaration, VariableStatement,
-    WhenBranch, WhenExpression, WhileLoop,
+    FunctionDefinition, FunctionSignature, FunctionType, IfElse, LambdaExpression, Literal,
+    Mutability, ObjectType, ObjectTypeDeclaration, Parameter, SimpleType, Statement,
+    StatementKind, Tuple, TupleType, Type, UnaryOperator, ValueField, ValueType,
+    ValueTypeDeclaration, VariableStatement, WhenBranch, WhenExpression, WhileLoop,
 };
 use crate::lexer::{Error, Lexer, Span, Token, TokenKind};
 
@@ -376,6 +376,10 @@ impl<'a> Parser<'a> {
             self.parse_tuple_type()?
         } else {
             let base_type = match self.current_token.kind.clone() {
+                TokenKind::Fn => {
+                    self.next_token();
+                    BaseType::Function(self.parse_function_type()?)
+                }
                 TokenKind::Identifier(name) => {
                     self.next_token(); // consume type name
                     BaseType::User(name)
@@ -755,6 +759,7 @@ impl<'a> Parser<'a> {
                 })
             }
             TokenKind::LParen => self.parse_paren_expression(),
+            TokenKind::Fn => self.parse_lambda_expression(),
             TokenKind::If => self.parse_if_expression(),
             TokenKind::When => self.parse_when_expression(),
             TokenKind::Identifier(name) => {
@@ -984,6 +989,65 @@ impl<'a> Parser<'a> {
             },
         ))
     }
+    // lambda_expression ::= 'fn' '(' function_parameters ')' ('->' type)? block
+    fn parse_lambda_expression(&mut self) -> Result<Expression, Error> {
+        let start_span = self.current_token.span;
+        self.expect_token(TokenKind::Fn)?;
+        self.expect_token(TokenKind::LParen)?;
+
+        let parameters = self.parse_function_parameters()?;
+
+        let return_type = if self.current_token.kind == TokenKind::Arrow {
+            self.next_token(); // consume '->'
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        self.require_token(TokenKind::LBrace)?;
+
+        let (body, body_span) = self.parse_block()?;
+        let end_span = body_span;
+
+        Ok(Expression {
+            kind: ExpressionKind::Lambda(Box::new(LambdaExpression {
+                parameters,
+                return_type,
+                body,
+            })),
+            span: Span {
+                start: start_span.start,
+                end: end_span.end,
+            },
+        })
+    }
+
+    // function_type ::= 'fn' '(' (type (',' type)*)? ')' '->' type
+    fn parse_function_type(&mut self) -> Result<FunctionType, Error> {
+        self.expect_token(TokenKind::LParen)?;
+
+        let mut parameters = Vec::new();
+        if self.current_token.kind != TokenKind::RParen {
+            parameters.push(self.parse_type()?);
+            while self.current_token.kind == TokenKind::Comma {
+                self.next_token(); // consume ','
+                if self.current_token.kind == TokenKind::RParen {
+                    break;
+                }
+                parameters.push(self.parse_type()?);
+            }
+        }
+        self.expect_token(TokenKind::RParen)?;
+
+        self.expect_token(TokenKind::Arrow)?;
+
+        let return_type = self.parse_type()?;
+
+        Ok(FunctionType {
+            parameters,
+            return_type: Box::new(return_type),
+        })
+    }
 }
 
 #[cfg(test)]
@@ -993,3 +1057,7 @@ mod parser_tests;
 #[cfg(test)]
 #[path = "parser_array_tests.rs"]
 mod parser_array_tests;
+
+#[cfg(test)]
+#[path = "parser_lambda_tests.rs"]
+mod parser_lambda_tests;

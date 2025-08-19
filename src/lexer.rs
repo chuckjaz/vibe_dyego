@@ -21,6 +21,7 @@ pub enum TokenKind {
 
     // Operators
     AmpersandAmpersand,
+    Arrow,
     Asterisk,
     Bang,
     BangEqual,
@@ -49,6 +50,7 @@ pub enum TokenKind {
     // Reserved words
     Else,
     Eof,
+    Fn,
     For,
     Fun,
     If,
@@ -118,7 +120,14 @@ impl<'a> Lexer<'a> {
         let start = self.position;
         let kind = match self.ch {
             b'+' => TokenKind::Plus,
-            b'-' => TokenKind::Minus,
+            b'-' => {
+                if self.peek_char() == b'>' {
+                    self.read_char();
+                    TokenKind::Arrow
+                } else {
+                    TokenKind::Minus
+                }
+            }
             b'*' => TokenKind::Asterisk,
             b'/' => TokenKind::Slash,
             b'%' => TokenKind::Percent,
@@ -270,6 +279,7 @@ impl<'a> Lexer<'a> {
             "else" => TokenKind::Else,
             "val" => TokenKind::Val,
             "var" => TokenKind::Var,
+            "fn" => TokenKind::Fn,
             "fun" => TokenKind::Fun,
             "value" => TokenKind::Value,
             "object" => TokenKind::Object,
